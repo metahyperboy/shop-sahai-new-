@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, TrendingUp, TrendingDown, Trash2 } from "lucide-react";
+import { Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
 import { useState } from "react";
 
 interface IncomeExpenseProps {
@@ -13,37 +13,46 @@ interface IncomeExpenseProps {
 
 interface Transaction {
   id: string;
-  date: string;
-  time: string;
-  amount: number;
   type: "income" | "expense";
-  category?: string;
+  amount: number;
+  category: string;
+  description: string;
+  date: string;
 }
 
 const IncomeExpense = ({ language }: IncomeExpenseProps) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [newTransaction, setNewTransaction] = useState({
+    type: "income",
     amount: "",
-    type: "income" as "income" | "expense",
-    category: ""
+    category: "",
+    description: ""
   });
 
   const isEnglish = language === "english";
 
+  const categories = {
+    income: isEnglish 
+      ? ["Sales", "Service", "Investment", "Other"] 
+      : ["വിൽപന", "സേവനം", "നിക്ഷേപം", "മറ്റുള്ളവ"],
+    expense: isEnglish 
+      ? ["Travel", "Food", "Utilities", "Supplies", "Other"] 
+      : ["യാത്ര", "ഭക്ഷണം", "യൂട്ടിലിറ്റി", "സാധനങ്ങൾ", "മറ്റുള്ളവ"]
+  };
+
   const addTransaction = () => {
-    if (newTransaction.amount) {
-      const now = new Date();
+    if (newTransaction.amount && newTransaction.category) {
       const transaction: Transaction = {
-        id: `${newTransaction.type === "income" ? "i" : "e"}${transactions.filter(t => t.type === newTransaction.type).length + 1}`,
-        date: now.toLocaleDateString(),
-        time: now.toLocaleTimeString(),
+        id: `t${transactions.length + 1}`,
+        type: newTransaction.type as "income" | "expense",
         amount: parseFloat(newTransaction.amount),
-        type: newTransaction.type,
-        category: newTransaction.category || undefined
+        category: newTransaction.category,
+        description: newTransaction.description,
+        date: new Date().toLocaleDateString()
       };
 
-      setTransactions([transaction, ...transactions]);
-      setNewTransaction({ amount: "", type: "income", category: "" });
+      setTransactions([...transactions, transaction]);
+      setNewTransaction({ type: "income", amount: "", category: "", description: "" });
     }
   };
 
@@ -51,8 +60,13 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
     setTransactions(transactions.filter(t => t.id !== id));
   };
 
-  const totalIncome = transactions.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
-  const totalExpense = transactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+  const totalIncome = transactions
+    .filter(t => t.type === "income")
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const totalExpense = transactions
+    .filter(t => t.type === "expense")
+    .reduce((sum, t) => sum + t.amount, 0);
 
   return (
     <div className="p-4 space-y-4 h-full overflow-y-auto">
@@ -63,7 +77,7 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">
-                  {isEnglish ? "Total Income" : "മൊത്തം വരുമാനം"}
+                  {isEnglish ? "Income" : "വരുമാനം"}
                 </p>
                 <p className="text-lg font-bold text-green-600">₹{totalIncome}</p>
               </div>
@@ -77,7 +91,7 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">
-                  {isEnglish ? "Total Expense" : "മൊത്തം ചെലവ്"}
+                  {isEnglish ? "Expense" : "ചെലവ്"}
                 </p>
                 <p className="text-lg font-bold text-red-600">₹{totalExpense}</p>
               </div>
@@ -87,7 +101,7 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
         </Card>
       </div>
 
-      {/* Add Transaction */}
+      {/* Add Transaction Form */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
@@ -99,43 +113,57 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
             <Label htmlFor="transaction-type">
               {isEnglish ? "Type" : "തരം"}
             </Label>
-            <Select value={newTransaction.type} onValueChange={(value: "income" | "expense") => setNewTransaction({ ...newTransaction, type: value })}>
+            <Select value={newTransaction.type} onValueChange={(value) => setNewTransaction({ ...newTransaction, type: value, category: "" })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="income">
-                  {isEnglish ? "Income" : "വരുമാനം"}
-                </SelectItem>
-                <SelectItem value="expense">
-                  {isEnglish ? "Expense" : "ചെലവ്"}
-                </SelectItem>
+                <SelectItem value="income">{isEnglish ? "Income" : "വരുമാനം"}</SelectItem>
+                <SelectItem value="expense">{isEnglish ? "Expense" : "ചെലവ്"}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div>
-            <Label htmlFor="amount">
-              {isEnglish ? "Amount" : "തുക"}
-            </Label>
-            <Input
-              id="amount"
-              type="number"
-              value={newTransaction.amount}
-              onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
-              placeholder="₹0"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="amount">
+                {isEnglish ? "Amount" : "തുക"}
+              </Label>
+              <Input
+                id="amount"
+                type="number"
+                value={newTransaction.amount}
+                onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                placeholder="₹0"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="category">
+                {isEnglish ? "Category" : "വിഭാഗം"}
+              </Label>
+              <Select value={newTransaction.category} onValueChange={(value) => setNewTransaction({ ...newTransaction, category: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isEnglish ? "Select category" : "വിഭാഗം തിരഞ്ഞെടുക്കുക"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories[newTransaction.type as keyof typeof categories].map((category) => (
+                    <SelectItem key={category} value={category}>{category}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div>
-            <Label htmlFor="category">
-              {isEnglish ? "Category (Optional)" : "വിഭാഗം (ഓപ്ഷണൽ)"}
+            <Label htmlFor="description">
+              {isEnglish ? "Description (Optional)" : "വിവരണം (ഓപ്ഷണൽ)"}
             </Label>
             <Input
-              id="category"
-              value={newTransaction.category}
-              onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
-              placeholder={isEnglish ? "e.g., Sales, Travel, Food" : "ഉദാ: വിൽപ്പന, യാത്ര, ഭക്ഷണം"}
+              id="description"
+              value={newTransaction.description}
+              onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+              placeholder={isEnglish ? "Enter description" : "വിവരണം നൽകുക"}
             />
           </div>
 
@@ -146,7 +174,7 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
         </CardContent>
       </Card>
 
-      {/* Transactions List */}
+      {/* Transaction List */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
@@ -156,39 +184,40 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
         <CardContent>
           {transactions.length === 0 ? (
             <p className="text-center text-muted-foreground py-4">
-              {isEnglish ? "No transactions recorded yet" : "ഇതുവരെ ഇടപാടുകൾ രേഖപ്പെടുത്തിയിട്ടില്ല"}
+              {isEnglish ? "No transactions yet" : "ഇതുവരെ ഇടപാടുകൾ ഇല്ല"}
             </p>
           ) : (
             <div className="space-y-2">
               {transactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${
-                      transaction.type === "income" ? "bg-green-500" : "bg-red-500"
-                    }`} />
-                    <div>
-                      <p className="font-medium">
-                        {transaction.category || (transaction.type === "income" ? (isEnglish ? "Income" : "വരുമാനം") : (isEnglish ? "Expense" : "ചെലവ്"))}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {transaction.date} • {transaction.time} • {transaction.id}
-                      </p>
+                <div key={transaction.id} className="p-3 border rounded-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-2 h-2 rounded-full ${
+                        transaction.type === "income" ? "bg-green-500" : "bg-red-500"
+                      }`} />
+                      <div>
+                        <p className="font-medium">{transaction.category}</p>
+                        {transaction.description && (
+                          <p className="text-sm text-muted-foreground">{transaction.description}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">{transaction.date}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <p className={`font-bold ${
-                      transaction.type === "income" ? "text-green-600" : "text-red-600"
-                    }`}>
-                      {transaction.type === "income" ? "+" : "-"}₹{transaction.amount}
-                    </p>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => deleteTransaction(transaction.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center space-x-2">
+                      <p className={`font-bold ${
+                        transaction.type === "income" ? "text-green-600" : "text-red-600"
+                      }`}>
+                        {transaction.type === "income" ? "+" : "-"}₹{transaction.amount}
+                      </p>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => deleteTransaction(transaction.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
