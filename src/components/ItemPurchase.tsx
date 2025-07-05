@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, Check, X } from "lucide-react";
 import { useState } from "react";
 
 interface ItemPurchaseProps {
@@ -23,6 +23,18 @@ interface PurchaseItem {
 const ItemPurchase = ({ language }: ItemPurchaseProps) => {
   const [items, setItems] = useState<PurchaseItem[]>([]);
   const [newItem, setNewItem] = useState({
+    name: "",
+    product: "",
+    totalAmount: "",
+    amountGiven: ""
+  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editItem, setEditItem] = useState<{
+    name: string;
+    product: string;
+    totalAmount: string;
+    amountGiven: string;
+  }>({
     name: "",
     product: "",
     totalAmount: "",
@@ -54,6 +66,37 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
 
   const deleteItem = (id: string) => {
     setItems(items.filter(item => item.id !== id));
+  };
+
+  const startEdit = (item: PurchaseItem) => {
+    setEditingId(item.id);
+    setEditItem({
+      name: item.name,
+      product: item.product,
+      totalAmount: item.totalAmount.toString(),
+      amountGiven: item.amountGiven.toString()
+    });
+  };
+
+  const saveEdit = () => {
+    if (editingId && editItem.name && editItem.product && editItem.totalAmount) {
+      const totalAmount = parseFloat(editItem.totalAmount) || 0;
+      const amountGiven = parseFloat(editItem.amountGiven) || 0;
+      const balance = totalAmount - amountGiven;
+
+      setItems(items.map(item => 
+        item.id === editingId 
+          ? { ...item, name: editItem.name, product: editItem.product, totalAmount, amountGiven, balance }
+          : item
+      ));
+      setEditingId(null);
+      setEditItem({ name: "", product: "", totalAmount: "", amountGiven: "" });
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditItem({ name: "", product: "", totalAmount: "", amountGiven: "" });
   };
 
   const totalSuppliers = items.length;
@@ -156,11 +199,53 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                     {items.map((item, index) => (
                       <tr key={item.id} className="border-b hover:bg-gray-50">
                         <td className="p-3 text-sm font-medium">{item.id}</td>
-                        <td className="p-3 text-sm font-medium">{item.name}</td>
+                        <td className="p-3 text-sm font-medium">
+                          {editingId === item.id ? (
+                            <Input
+                              value={editItem.name}
+                              onChange={(e) => setEditItem({...editItem, name: e.target.value})}
+                              className="h-8 text-sm"
+                            />
+                          ) : (
+                            item.name
+                          )}
+                        </td>
                         <td className="p-3 text-sm text-muted-foreground">{item.date}</td>
-                        <td className="p-3 text-sm">{item.product}</td>
-                        <td className="p-3 text-sm font-medium">₹{item.totalAmount.toLocaleString()}</td>
-                        <td className="p-3 text-sm font-medium">₹{item.amountGiven.toLocaleString()}</td>
+                        <td className="p-3 text-sm">
+                          {editingId === item.id ? (
+                            <Input
+                              value={editItem.product}
+                              onChange={(e) => setEditItem({...editItem, product: e.target.value})}
+                              className="h-8 text-sm"
+                            />
+                          ) : (
+                            item.product
+                          )}
+                        </td>
+                        <td className="p-3 text-sm font-medium">
+                          {editingId === item.id ? (
+                            <Input
+                              type="number"
+                              value={editItem.totalAmount}
+                              onChange={(e) => setEditItem({...editItem, totalAmount: e.target.value})}
+                              className="h-8 text-sm"
+                            />
+                          ) : (
+                            `₹${item.totalAmount.toLocaleString()}`
+                          )}
+                        </td>
+                        <td className="p-3 text-sm font-medium">
+                          {editingId === item.id ? (
+                            <Input
+                              type="number"
+                              value={editItem.amountGiven}
+                              onChange={(e) => setEditItem({...editItem, amountGiven: e.target.value})}
+                              className="h-8 text-sm"
+                            />
+                          ) : (
+                            `₹${item.amountGiven.toLocaleString()}`
+                          )}
+                        </td>
                         <td className="p-3 text-sm font-semibold">
                           <span className={item.balance > 0 ? "text-red-600" : "text-green-600"}>
                             ₹{item.balance.toLocaleString()}
@@ -179,14 +264,47 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                           </span>
                         </td>
                         <td className="p-3">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => deleteItem(item.id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-1">
+                            {editingId === item.id ? (
+                              <>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={saveEdit}
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={cancelEdit}
+                                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => startEdit(item)}
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => deleteItem(item.id)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

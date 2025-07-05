@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Edit, Check, X } from "lucide-react";
 import { useState } from "react";
 
 interface BorrowManagementProps {
@@ -22,6 +22,16 @@ interface BorrowItem {
 const BorrowManagement = ({ language }: BorrowManagementProps) => {
   const [items, setItems] = useState<BorrowItem[]>([]);
   const [newItem, setNewItem] = useState({
+    name: "",
+    totalGiven: "",
+    amountPaid: ""
+  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editItem, setEditItem] = useState<{
+    name: string;
+    totalGiven: string;
+    amountPaid: string;
+  }>({
     name: "",
     totalGiven: "",
     amountPaid: ""
@@ -51,6 +61,36 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
 
   const deleteItem = (id: string) => {
     setItems(items.filter(item => item.id !== id));
+  };
+
+  const startEdit = (item: BorrowItem) => {
+    setEditingId(item.id);
+    setEditItem({
+      name: item.name,
+      totalGiven: item.totalGiven.toString(),
+      amountPaid: item.amountPaid.toString()
+    });
+  };
+
+  const saveEdit = () => {
+    if (editingId && editItem.name && editItem.totalGiven) {
+      const totalGiven = parseFloat(editItem.totalGiven) || 0;
+      const amountPaid = parseFloat(editItem.amountPaid) || 0;
+      const balance = totalGiven - amountPaid;
+
+      setItems(items.map(item => 
+        item.id === editingId 
+          ? { ...item, name: editItem.name, totalGiven, amountPaid, balance }
+          : item
+      ));
+      setEditingId(null);
+      setEditItem({ name: "", totalGiven: "", amountPaid: "" });
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditItem({ name: "", totalGiven: "", amountPaid: "" });
   };
 
   const totalBorrowers = items.length;
@@ -150,10 +190,42 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
                     {items.map((item) => (
                       <tr key={item.id} className="border-b hover:bg-gray-50">
                         <td className="p-3 text-sm font-medium">{item.id}</td>
-                        <td className="p-3 text-sm font-medium">{item.name}</td>
+                        <td className="p-3 text-sm font-medium">
+                          {editingId === item.id ? (
+                            <Input
+                              value={editItem.name}
+                              onChange={(e) => setEditItem({...editItem, name: e.target.value})}
+                              className="h-8 text-sm"
+                            />
+                          ) : (
+                            item.name
+                          )}
+                        </td>
                         <td className="p-3 text-sm text-muted-foreground">{item.date}</td>
-                        <td className="p-3 text-sm font-medium">₹{item.totalGiven.toLocaleString()}</td>
-                        <td className="p-3 text-sm font-medium">₹{item.amountPaid.toLocaleString()}</td>
+                        <td className="p-3 text-sm font-medium">
+                          {editingId === item.id ? (
+                            <Input
+                              type="number"
+                              value={editItem.totalGiven}
+                              onChange={(e) => setEditItem({...editItem, totalGiven: e.target.value})}
+                              className="h-8 text-sm"
+                            />
+                          ) : (
+                            `₹${item.totalGiven.toLocaleString()}`
+                          )}
+                        </td>
+                        <td className="p-3 text-sm font-medium">
+                          {editingId === item.id ? (
+                            <Input
+                              type="number"
+                              value={editItem.amountPaid}
+                              onChange={(e) => setEditItem({...editItem, amountPaid: e.target.value})}
+                              className="h-8 text-sm"
+                            />
+                          ) : (
+                            `₹${item.amountPaid.toLocaleString()}`
+                          )}
+                        </td>
                         <td className="p-3 text-sm font-semibold">
                           <span className={item.balance > 0 ? "text-red-600" : "text-green-600"}>
                             ₹{item.balance.toLocaleString()}
@@ -172,14 +244,47 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
                           </span>
                         </td>
                         <td className="p-3">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => deleteItem(item.id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-1">
+                            {editingId === item.id ? (
+                              <>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={saveEdit}
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={cancelEdit}
+                                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => startEdit(item)}
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => deleteItem(item.id)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
