@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Mic, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 interface ItemPurchaseProps {
@@ -63,49 +63,38 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="p-4 border-b bg-card">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h1 className="text-xl font-bold">
-              {isEnglish ? "Item Purchase Management" : "സാധന വാങ്ങൽ മാനേജ്മെന്റ്"}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {isEnglish ? "Track supplier purchases and balances" : "വിതരണക്കാരുടെ വാങ്ങലുകളും ബാക്കിയും ട്രാക്ക് ചെയ്യുക"}
-            </p>
-          </div>
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm">
-              <Mic className="h-4 w-4 mr-1" />
-              {isEnglish ? "Voice Input" : "വോയ്സ് ഇൻപുട്ട്"}
-            </Button>
-            <Button size="sm" onClick={() => document.getElementById('add-form')?.scrollIntoView()}>
-              <Plus className="h-4 w-4 mr-1" />
-              {isEnglish ? "Add Purchase" : "വാങ്ങൽ ചേർക്കുക"}
-            </Button>
-          </div>
+      <div className="p-6 border-b bg-card">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">
+            {isEnglish ? "Item Purchase Management" : "സാധന വാങ്ങൽ മാനേജ്മെന്റ്"}
+          </h1>
+          <Button size="sm" onClick={() => document.getElementById('add-form')?.scrollIntoView()}>
+            <Plus className="h-4 w-4 mr-2" />
+            {isEnglish ? "Add Purchase" : "വാങ്ങൽ ചേർക്കുക"}
+          </Button>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-3 gap-4 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{totalSuppliers}</div>
+            <CardContent className="p-6 text-center">
+              <div className="text-3xl font-bold text-blue-600 mb-2">{totalSuppliers}</div>
               <div className="text-sm text-muted-foreground">
                 {isEnglish ? "Total Suppliers" : "മൊത്തം വിതരണക്കാർ"}
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-red-600">₹{totalOutstanding.toLocaleString()}</div>
+            <CardContent className="p-6 text-center">
+              <div className="text-3xl font-bold text-red-600 mb-2">₹{totalOutstanding.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">
                 {isEnglish ? "Total Outstanding" : "മൊത്തം ബാക്കി"}
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">₹{totalPurchases.toLocaleString()}</div>
+            <CardContent className="p-6 text-center">
+              <div className="text-3xl font-bold text-green-600 mb-2">₹{totalPurchases.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">
                 {isEnglish ? "Total Purchases" : "മൊത്തം വാങ്ങലുകൾ"}
               </div>
@@ -115,17 +104,17 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
       </div>
 
       {/* Purchase Records Table */}
-      <div className="flex-1 p-4 overflow-y-auto">
+      <div className="flex-1 p-6 overflow-y-auto space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">
+            <CardTitle className="text-xl">
               {isEnglish ? "Purchase Records" : "വാങ്ങൽ രേഖകൾ"}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {items.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">
+              <div className="text-center py-12">
+                <p className="text-muted-foreground text-lg">
                   {isEnglish ? "No purchases recorded yet" : "ഇതുവരെ വാങ്ങലുകൾ രേഖപ്പെടുത്തിയിട്ടില്ല"}
                 </p>
               </div>
@@ -134,31 +123,31 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-2 font-medium">
+                      <th className="text-left p-3 font-medium">
                         {isEnglish ? "Number" : "നമ്പർ"}
                       </th>
-                      <th className="text-left p-2 font-medium">
+                      <th className="text-left p-3 font-medium">
                         {isEnglish ? "Supplier Name" : "വിതരണക്കാരന്റെ പേര്"}
                       </th>
-                      <th className="text-left p-2 font-medium">
+                      <th className="text-left p-3 font-medium">
                         {isEnglish ? "Date" : "തീയതി"}
                       </th>
-                      <th className="text-left p-2 font-medium">
+                      <th className="text-left p-3 font-medium">
                         {isEnglish ? "Product" : "ഉൽപ്പന്നം"}
                       </th>
-                      <th className="text-left p-2 font-medium">
+                      <th className="text-left p-3 font-medium">
                         {isEnglish ? "Total Amount" : "മൊത്തം തുക"}
                       </th>
-                      <th className="text-left p-2 font-medium">
+                      <th className="text-left p-3 font-medium">
                         {isEnglish ? "Amount Given" : "നൽകിയ തുക"}
                       </th>
-                      <th className="text-left p-2 font-medium">
+                      <th className="text-left p-3 font-medium">
                         {isEnglish ? "Balance" : "ബാക്കി"}
                       </th>
-                      <th className="text-left p-2 font-medium">
+                      <th className="text-left p-3 font-medium">
                         {isEnglish ? "Status" : "സ്ഥിതി"}
                       </th>
-                      <th className="text-left p-2 font-medium">
+                      <th className="text-left p-3 font-medium">
                         {isEnglish ? "Actions" : "പ്രവർത്തനങ്ങൾ"}
                       </th>
                     </tr>
@@ -166,19 +155,19 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                   <tbody>
                     {items.map((item, index) => (
                       <tr key={item.id} className="border-b hover:bg-muted/50">
-                        <td className="p-2">{item.id}</td>
-                        <td className="p-2">{item.name}</td>
-                        <td className="p-2 text-sm text-muted-foreground">{item.date}</td>
-                        <td className="p-2">{item.product}</td>
-                        <td className="p-2">₹{item.totalAmount.toLocaleString()}</td>
-                        <td className="p-2">₹{item.amountGiven.toLocaleString()}</td>
-                        <td className="p-2">
+                        <td className="p-3">{item.id}</td>
+                        <td className="p-3 font-medium">{item.name}</td>
+                        <td className="p-3 text-sm text-muted-foreground">{item.date}</td>
+                        <td className="p-3">{item.product}</td>
+                        <td className="p-3 font-medium">₹{item.totalAmount.toLocaleString()}</td>
+                        <td className="p-3 font-medium">₹{item.amountGiven.toLocaleString()}</td>
+                        <td className="p-3">
                           <span className={item.balance > 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
                             ₹{item.balance.toLocaleString()}
                           </span>
                         </td>
-                        <td className="p-2">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
+                        <td className="p-3">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                             item.balance > 0 
                               ? "bg-red-100 text-red-700" 
                               : "bg-green-100 text-green-700"
@@ -189,12 +178,12 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                             }
                           </span>
                         </td>
-                        <td className="p-2">
+                        <td className="p-3">
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             onClick={() => deleteItem(item.id)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -209,16 +198,16 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
         </Card>
 
         {/* Add Purchase Form */}
-        <Card className="mt-4" id="add-form">
+        <Card id="add-form">
           <CardHeader>
-            <CardTitle className="text-lg">
+            <CardTitle className="text-xl">
               {isEnglish ? "Add New Purchase" : "പുതിയ വാങ്ങൽ ചേർക്കുക"}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="supplier-name">
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="supplier-name" className="text-sm font-medium">
                   {isEnglish ? "Supplier Name" : "വിതരണക്കാരന്റെ പേര്"}
                 </Label>
                 <Input
@@ -226,11 +215,12 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                   value={newItem.name}
                   onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
                   placeholder={isEnglish ? "Enter supplier name" : "വിതരണക്കാരന്റെ പേര് നൽകുക"}
+                  className="h-11"
                 />
               </div>
               
-              <div>
-                <Label htmlFor="product-name">
+              <div className="space-y-2">
+                <Label htmlFor="product-name" className="text-sm font-medium">
                   {isEnglish ? "Product Name" : "ഉൽപ്പന്നത്തിന്റെ പേര്"}
                 </Label>
                 <Input
@@ -238,13 +228,14 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                   value={newItem.product}
                   onChange={(e) => setNewItem({ ...newItem, product: e.target.value })}
                   placeholder={isEnglish ? "Enter product name" : "ഉൽപ്പന്നത്തിന്റെ പേര് നൽകുക"}
+                  className="h-11"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="total-amount">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="total-amount" className="text-sm font-medium">
                   {isEnglish ? "Total Amount" : "മൊത്തം തുക"}
                 </Label>
                 <Input
@@ -253,11 +244,12 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                   value={newItem.totalAmount}
                   onChange={(e) => setNewItem({ ...newItem, totalAmount: e.target.value })}
                   placeholder="₹0"
+                  className="h-11"
                 />
               </div>
               
-              <div>
-                <Label htmlFor="amount-given">
+              <div className="space-y-2">
+                <Label htmlFor="amount-given" className="text-sm font-medium">
                   {isEnglish ? "Amount Given" : "നൽകിയ തുക"}
                 </Label>
                 <Input
@@ -266,12 +258,13 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                   value={newItem.amountGiven}
                   onChange={(e) => setNewItem({ ...newItem, amountGiven: e.target.value })}
                   placeholder="₹0"
+                  className="h-11"
                 />
               </div>
             </div>
 
-            <Button onClick={addItem} className="w-full">
-              <Plus className="h-4 w-4 mr-2" />
+            <Button onClick={addItem} className="w-full h-11 text-base">
+              <Plus className="h-5 w-5 mr-2" />
               {isEnglish ? "Add Purchase" : "വാങ്ങൽ ചേർക്കുക"}
             </Button>
           </CardContent>
