@@ -20,8 +20,9 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
 
   useEffect(() => {
     // Check if browser supports speech recognition
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
       
       if (recognitionRef.current) {
@@ -29,7 +30,7 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
         recognitionRef.current.interimResults = true;
         recognitionRef.current.lang = language === "malayalam" ? "ml-IN" : "en-US";
 
-        recognitionRef.current.onresult = (event) => {
+        recognitionRef.current.onresult = (event: any) => {
           const current = event.resultIndex;
           const transcript = event.results[current][0].transcript;
           setTranscript(transcript);
@@ -43,7 +44,7 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
           setIsListening(false);
         };
 
-        recognitionRef.current.onerror = (event) => {
+        recognitionRef.current.onerror = (event: any) => {
           console.error('Speech recognition error:', event.error);
           setIsListening(false);
           setResponse(isEnglish 
