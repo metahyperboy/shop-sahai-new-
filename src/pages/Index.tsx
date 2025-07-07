@@ -17,10 +17,83 @@ const Index = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [language, setLanguage] = useState("english");
   const [userName, setUserName] = useState("User");
+  const [transactions, setTransactions] = useState([]);
+  const [filter, setFilter] = useState<'daily' | 'weekly' | 'monthly' | 'all'>('all');
+
+  // Load user profile data
+  const loadProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileData) {
+        setUserName(profileData.display_name || user.email?.split('@')[0] || "User");
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    }
+  };
+
+  // Fetch transactions for dashboard
+  const fetchTransactions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTransactions((data || []).map(item => ({
+        ...item,
+        type: item.type as "income" | "expense"
+      })));
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadProfile();
+    fetchTransactions();
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
+
+  // Auto-close settings when navigating
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    setShowSettings(false); // Auto-close settings
+  };
+
+  // Filter transactions based on time period
+  const filterTransactions = () => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    switch (filter) {
+      case 'daily':
+        return transactions.filter(t => new Date(t.created_at) >= startOfDay);
+      case 'weekly':
+        return transactions.filter(t => new Date(t.created_at) >= startOfWeek);
+      case 'monthly':
+        return transactions.filter(t => new Date(t.created_at) >= startOfMonth);
+      default:
+        return transactions;
+    }
+  };
+
+  const filteredTransactions = filterTransactions();
 
   // Apply dark mode to document
   useEffect(() => {
@@ -31,16 +104,26 @@ const Index = () => {
     }
   }, [isDarkMode]);
 
-  // Sample data for demonstration
-  const totalIncome = 15000;
-  const totalExpense = 8000;
+  // Sample data for demonstration - now using real data from expense page
+  const totalIncome = filteredTransactions
+    .filter(t => t.type === "income")
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const totalExpense = filteredTransactions
+    .filter(t => t.type === "expense")
+    .reduce((sum, t) => sum + t.amount, 0);
+  
   const totalGain = totalIncome - totalExpense;
 
-  const recentTransactions = [
-    { id: 1, type: "Income", amount: 700, category: "Sales", date: "Today" },
-    { id: 2, type: "Expense", amount: 200, category: "Travel", date: "Today" },
-    { id: 3, type: "Income", amount: 1200, category: "Sales", date: "Yesterday" },
-  ];
+  const recentTransactions = filteredTransactions.slice(0, 3).map((transaction, index) => ({
+    id: transaction.id,
+    type: transaction.type === "income" ? "Income" : "Expense",
+    amount: transaction.amount,
+    category: transaction.category,
+    date: new Date(transaction.created_at).toLocaleDateString() === new Date().toLocaleDateString() ? "Today" : 
+          new Date(transaction.created_at).toLocaleDateString() === new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString() ? "Yesterday" :
+          new Date(transaction.created_at).toLocaleDateString()
+  }));
 
   const navigationItems = [
     { 
@@ -80,16 +163,62 @@ const Index = () => {
       );
     }
 
+    // Render filter buttons for all pages
+    const FilterButtons = () => (
+      <div className="flex gap-2 mb-4 p-4">
+        <Button
+          variant={filter === 'daily' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('daily')}
+        >
+          {language === "malayalam" ? "ദൈനിക" : "Daily"}
+        </Button>
+        <Button
+          variant={filter === 'weekly' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('weekly')}
+        >
+          {language === "malayalam" ? "പ്രതിവാരം" : "Weekly"}
+        </Button>
+        <Button
+          variant={filter === 'monthly' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('monthly')}
+        >
+          {language === "malayalam" ? "പ്രതിമാസം" : "Monthly"}
+        </Button>
+        <Button
+          variant={filter === 'all' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('all')}
+        >
+          {language === "malayalam" ? "എല്ലാം" : "All"}
+        </Button>
+      </div>
+    );
+
     switch (activeTab) {
       case "purchases":
-        return <ItemPurchase language={language} />;
+        return (
+          <>
+            <FilterButtons />
+            <ItemPurchase language={language} />
+          </>
+        );
       case "borrow":
-        return <BorrowManagement language={language} />;
+        return (
+          <>
+            <FilterButtons />
+            <BorrowManagement language={language} />
+          </>
+        );
       case "income-expense":
         return <IncomeExpense language={language} />;
       default:
         return (
-          <div className="p-4 space-y-4 h-full overflow-y-auto">
+          <>
+            <FilterButtons />
+            <div className="p-4 space-y-4 h-full overflow-y-auto">
             {/* Financial Overview Cards */}
             <div className="grid grid-cols-1 gap-3">
               <Card className="border-l-4 border-l-green-500">
@@ -163,16 +292,17 @@ const Index = () => {
                     </div>
                   ))}
                 </div>
-                <Button 
-                  variant="outline" 
-                  className="w-full mt-3 text-sm" 
-                  onClick={() => setActiveTab("income-expense")}
-                >
+              <Button 
+                variant="outline" 
+                className="w-full mt-3 text-sm" 
+                onClick={() => handleTabChange("income-expense")}
+              >
                   {language === "malayalam" ? "എല്ലാ ഇടപാടുകളും കാണുക" : "View All Transactions"}
                 </Button>
               </CardContent>
             </Card>
-          </div>
+            </div>
+          </>
         );
     }
   };
@@ -237,7 +367,7 @@ const Index = () => {
           {navigationItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => handleTabChange(item.id)}
               className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg transition-colors ${
                 activeTab === item.id
                   ? "bg-primary/10 text-primary"
