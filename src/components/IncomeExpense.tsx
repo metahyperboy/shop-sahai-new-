@@ -25,6 +25,8 @@ interface Transaction {
 const IncomeExpense = ({ language }: IncomeExpenseProps) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [filter, setFilter] = useState<'daily' | 'weekly' | 'monthly' | 'all'>('all');
   const { toast } = useToast();
 
   // Fetch transactions from Supabase
@@ -73,7 +75,8 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
   };
 
   const addTransaction = async () => {
-    if (newTransaction.amount && newTransaction.category) {
+    if (newTransaction.amount && newTransaction.category && !isSubmitting) {
+      setIsSubmitting(true);
       try {
         const { data, error } = await supabase
           .from('transactions')
@@ -101,6 +104,8 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
           description: "Failed to add transaction",
           variant: "destructive",
         });
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
@@ -128,11 +133,32 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
     }
   };
 
-  const totalIncome = transactions
+  const filterTransactions = () => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    switch (filter) {
+      case 'daily':
+        return transactions.filter(t => new Date(t.created_at) >= startOfDay);
+      case 'weekly':
+        return transactions.filter(t => new Date(t.created_at) >= startOfWeek);
+      case 'monthly':
+        return transactions.filter(t => new Date(t.created_at) >= startOfMonth);
+      default:
+        return transactions;
+    }
+  };
+
+  const filteredTransactions = filterTransactions();
+
+  const totalIncome = filteredTransactions
     .filter(t => t.type === "income")
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const totalExpense = transactions
+  const totalExpense = filteredTransactions
     .filter(t => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
 
@@ -146,6 +172,38 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
 
   return (
     <div className="p-4 space-y-4 h-full overflow-y-auto">
+      {/* Filter Buttons */}
+      <div className="flex gap-2 mb-4">
+        <Button
+          variant={filter === 'daily' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('daily')}
+        >
+          {isEnglish ? "Daily" : "ദൈനിക"}
+        </Button>
+        <Button
+          variant={filter === 'weekly' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('weekly')}
+        >
+          {isEnglish ? "Weekly" : "പ്രതിവാരം"}
+        </Button>
+        <Button
+          variant={filter === 'monthly' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('monthly')}
+        >
+          {isEnglish ? "Monthly" : "പ്രതിമാസം"}
+        </Button>
+        <Button
+          variant={filter === 'all' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('all')}
+        >
+          {isEnglish ? "All" : "എല്ലാം"}
+        </Button>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="border-l-4 border-l-green-500">
@@ -243,9 +301,9 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
             />
           </div>
 
-          <Button onClick={addTransaction} className="w-full">
+          <Button onClick={addTransaction} disabled={isSubmitting} className="w-full">
             <Plus className="h-4 w-4 mr-2" />
-            {isEnglish ? "Add Transaction" : "ഇടപാട് ചേർക്കുക"}
+            {isSubmitting ? "Adding..." : (isEnglish ? "Add Transaction" : "ഇടപാട് ചേർക്കുക")}
           </Button>
         </CardContent>
       </Card>
@@ -258,13 +316,13 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {transactions.length === 0 ? (
+          {filteredTransactions.length === 0 ? (
             <p className="text-center text-muted-foreground py-4">
               {isEnglish ? "No transactions yet" : "ഇതുവരെ ഇടപാടുകൾ ഇല്ല"}
             </p>
           ) : (
             <div className="space-y-2">
-              {transactions.map((transaction) => (
+              {filteredTransactions.map((transaction) => (
                 <div key={transaction.id} className="p-3 border rounded-lg">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center space-x-2">

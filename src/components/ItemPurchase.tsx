@@ -18,6 +18,7 @@ interface PurchaseItem {
   total_amount: number;
   amount_paid: number;
   balance: number;
+  transaction_id: string;
 }
 
 const ItemPurchase = ({ language }: ItemPurchaseProps) => {
@@ -38,6 +39,7 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
     amountPaid: ""
   });
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const isEnglish = language === "english";
@@ -68,7 +70,8 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
   }, []);
 
   const addItem = async () => {
-    if (newItem.supplierName && newItem.totalAmount) {
+    if (newItem.supplierName && newItem.totalAmount && !isSubmitting) {
+      setIsSubmitting(true);
       const totalAmount = parseFloat(newItem.totalAmount) || 0;
       const amountPaid = parseFloat(newItem.amountPaid) || 0;
       const balance = totalAmount - amountPaid;
@@ -102,6 +105,8 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
           description: "Failed to add purchase",
           variant: "destructive",
         });
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
@@ -199,7 +204,7 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
       <div className="p-6 border-b bg-card">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">
-            {isEnglish ? "Item Purchase Management" : "സാധന വാങ്ങൽ മാനേജ്മെന്റ്"}
+            {isEnglish ? "Item Purchase Management" : "സാധനം വാങ്ങൽ മാനേജ്മെന്റ്"}
           </h1>
           <Button size="sm" onClick={() => document.getElementById('add-form')?.scrollIntoView()}>
             <Plus className="h-4 w-4 mr-2" />
@@ -256,33 +261,39 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b bg-muted/30">
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
+                        {isEnglish ? "ID" : "ഐഡി"}
+                      </th>
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Supplier Name" : "വിതരണക്കാരന്റെ പേര്"}
                       </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Date" : "തീയതി"}
                       </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Total Amount" : "മൊത്തം തുക"}
                       </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Amount Given" : "നൽകിയ തുക"}
                       </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Balance" : "ബാക്കി"}
                       </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Status" : "സ്ഥിതി"}
                       </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Actions" : "പ്രവർത്തനങ്ങൾ"}
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white">
+                  <tbody className="bg-card">
                     {items.map((item) => (
-                      <tr key={item.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3 text-sm font-medium">
+                      <tr key={item.id} className="border-b hover:bg-muted/50">
+                        <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
+                          {item.transaction_id}
+                        </td>
+                        <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
                           {editingId === item.id ? (
                             <Input
                               value={editItem.supplierName}
@@ -293,8 +304,8 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                             item.supplier_name
                           )}
                         </td>
-                        <td className="p-3 text-sm text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</td>
-                        <td className="p-3 text-sm font-medium">
+                        <td className={`p-3 text-sm text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>{new Date(item.created_at).toLocaleDateString()}</td>
+                        <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
                           {editingId === item.id ? (
                             <Input
                               type="number"
@@ -306,7 +317,7 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                             `₹${item.total_amount.toLocaleString()}`
                           )}
                         </td>
-                        <td className="p-3 text-sm font-medium">
+                        <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
                           {editingId === item.id ? (
                             <Input
                               type="number"
@@ -318,7 +329,7 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                             `₹${item.amount_paid.toLocaleString()}`
                           )}
                         </td>
-                        <td className="p-3 text-sm font-semibold">
+                        <td className={`p-3 text-sm font-semibold ${!isEnglish ? 'text-right' : ''}`}>
                           <span className={item.balance > 0 ? "text-red-600" : "text-green-600"}>
                             ₹{item.balance.toLocaleString()}
                           </span>
@@ -438,9 +449,9 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
               </div>
             </div>
 
-            <Button onClick={addItem} className="w-full h-11 text-base">
+            <Button onClick={addItem} disabled={isSubmitting} className="w-full h-11 text-base">
               <Plus className="h-5 w-5 mr-2" />
-              {isEnglish ? "Add Purchase" : "വാങ്ങൽ ചേർക്കുക"}
+              {isSubmitting ? "Adding..." : (isEnglish ? "Add Purchase" : "വാങ്ങൽ ചേർക്കുക")}
             </Button>
           </CardContent>
         </Card>

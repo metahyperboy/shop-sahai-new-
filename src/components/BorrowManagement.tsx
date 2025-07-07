@@ -19,11 +19,13 @@ interface BorrowItem {
   total_given: number;
   amount_paid: number;
   balance: number;
+  transaction_id: string;
 }
 
 const BorrowManagement = ({ language }: BorrowManagementProps) => {
   const [items, setItems] = useState<BorrowItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   // Fetch borrows from Supabase
@@ -69,12 +71,16 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
   const isEnglish = language === "english";
 
   const addItem = async () => {
-    if (newItem.name && newItem.totalGiven) {
+    if (newItem.name && newItem.totalGiven && !isSubmitting) {
+      setIsSubmitting(true);
       const totalGiven = parseFloat(newItem.totalGiven) || 0;
       const amountPaid = parseFloat(newItem.amountPaid) || 0;
       const balance = totalGiven - amountPaid;
 
       try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
         const { data, error } = await supabase
           .from('borrows')
           .insert({
@@ -82,7 +88,7 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
             total_given: totalGiven,
             amount_paid: amountPaid,
             balance: balance,
-            user_id: (await supabase.auth.getUser()).data.user?.id || ''
+            user_id: user.id
           })
           .select()
           .single();
@@ -101,6 +107,8 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
           description: "Failed to add borrow record",
           variant: "destructive",
         });
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
@@ -257,37 +265,37 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b bg-muted/30">
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                        {isEnglish ? "Number" : "നമ്പർ"}
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
+                        {isEnglish ? "ID" : "ഐഡി"}
                       </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Borrower Name" : "കടക്കാരന്റെ പേര്"}
                       </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Date" : "തീയതി"}
                       </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Amount Given" : "നൽകിയ തുക"}
                       </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Amount Received" : "തിരികെ കിട്ടിയത്"}
                       </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Balance" : "ബാക്കി"}
                       </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Status" : "സ്ഥിതി"}
                       </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                      <th className={`text-left p-3 text-sm font-medium text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>
                         {isEnglish ? "Actions" : "പ്രവർത്തനങ്ങൾ"}
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white">
+                  <tbody className="bg-card">
                     {items.map((item) => (
-                      <tr key={item.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3 text-sm font-medium">{item.id}</td>
-                        <td className="p-3 text-sm font-medium">
+                      <tr key={item.id} className="border-b hover:bg-muted/50">
+                        <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>{item.transaction_id}</td>
+                        <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
                           {editingId === item.id ? (
                             <Input
                               value={editItem.name}
@@ -298,8 +306,8 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
                             item.borrower_name
                           )}
                         </td>
-                        <td className="p-3 text-sm text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</td>
-                        <td className="p-3 text-sm font-medium">
+                        <td className={`p-3 text-sm text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>{new Date(item.created_at).toLocaleDateString()}</td>
+                        <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
                           {editingId === item.id ? (
                             <Input
                               type="number"
@@ -311,7 +319,7 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
                             `₹${item.total_given.toLocaleString()}`
                           )}
                         </td>
-                        <td className="p-3 text-sm font-medium">
+                        <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
                           {editingId === item.id ? (
                             <Input
                               type="number"
@@ -323,7 +331,7 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
                             `₹${item.amount_paid.toLocaleString()}`
                           )}
                         </td>
-                        <td className="p-3 text-sm font-semibold">
+                        <td className={`p-3 text-sm font-semibold ${!isEnglish ? 'text-right' : ''}`}>
                           <span className={item.balance > 0 ? "text-red-600" : "text-green-600"}>
                             ₹{item.balance.toLocaleString()}
                           </span>
@@ -443,9 +451,9 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
               </div>
             </div>
 
-            <Button onClick={addItem} className="w-full h-11 text-base">
+            <Button onClick={addItem} disabled={isSubmitting} className="w-full h-11 text-base">
               <Plus className="h-5 w-5 mr-2" />
-              {isEnglish ? "Add Borrow Record" : "കടം രേഖ ചേർക്കുക"}
+              {isSubmitting ? "Adding..." : (isEnglish ? "Add Borrow Record" : "കടം രേഖ ചേർക്കുക")}
             </Button>
           </CardContent>
         </Card>

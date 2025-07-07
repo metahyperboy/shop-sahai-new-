@@ -22,6 +22,7 @@ export type Database = {
           created_at: string
           id: string
           total_given: number
+          transaction_id: string | null
           updated_at: string
           user_id: string
         }
@@ -32,6 +33,7 @@ export type Database = {
           created_at?: string
           id?: string
           total_given: number
+          transaction_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -42,6 +44,7 @@ export type Database = {
           created_at?: string
           id?: string
           total_given?: number
+          transaction_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -55,6 +58,7 @@ export type Database = {
           id: string
           supplier_name: string
           total_amount: number
+          transaction_id: string | null
           updated_at: string
           user_id: string
         }
@@ -65,6 +69,7 @@ export type Database = {
           id?: string
           supplier_name: string
           total_amount: number
+          transaction_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -75,6 +80,7 @@ export type Database = {
           id?: string
           supplier_name?: string
           total_amount?: number
+          transaction_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -118,7 +124,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_borrow_transaction_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      generate_purchase_transaction_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
