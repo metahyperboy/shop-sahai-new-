@@ -23,6 +23,7 @@ interface PurchaseItem {
 
 const ItemPurchase = ({ language }: ItemPurchaseProps) => {
   const [items, setItems] = useState<PurchaseItem[]>([]);
+  const [filter, setFilter] = useState('monthly');
   const [newItem, setNewItem] = useState({
     supplierName: "",
     totalAmount: "",
@@ -186,9 +187,30 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
     setEditItem({ supplierName: "", totalAmount: "", amountPaid: "" });
   };
 
-  const totalSuppliers = items.length;
-  const totalOutstanding = items.reduce((sum, item) => sum + item.balance, 0);
-  const totalPurchases = items.reduce((sum, item) => sum + item.total_amount, 0);
+  // Filter purchases based on time period
+  const filterPurchases = () => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    switch (filter) {
+      case 'daily':
+        return items.filter(item => new Date(item.created_at) >= startOfDay);
+      case 'weekly':
+        return items.filter(item => new Date(item.created_at) >= startOfWeek);
+      case 'monthly':
+        return items.filter(item => new Date(item.created_at) >= startOfMonth);
+      default:
+        return items;
+    }
+  };
+
+  const filteredItems = filterPurchases();
+  const totalSuppliers = filteredItems.length;
+  const totalOutstanding = filteredItems.reduce((sum, item) => sum + item.balance, 0);
+  const totalPurchases = filteredItems.reduce((sum, item) => sum + item.total_amount, 0);
 
   if (loading) {
     return (
@@ -203,12 +225,41 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
       {/* Header */}
       <div className="p-6 border-b bg-card">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-xl md:text-2xl font-bold">
             {isEnglish ? "Item Purchase Management" : "സാധനം വാങ്ങൽ മാനേജ്മെന്റ്"}
           </h1>
           <Button size="sm" onClick={() => document.getElementById('add-form')?.scrollIntoView()}>
             <Plus className="h-4 w-4 mr-2" />
-            {isEnglish ? "Add Purchase" : "വാങ്ങൽ ചേർക്കുക"}
+            <span className="hidden sm:inline">{isEnglish ? "Add Purchase" : "വാങ്ങൽ ചേർക്കുക"}</span>
+            <span className="sm:hidden">{isEnglish ? "Add" : "ചേർക്കുക"}</span>
+          </Button>
+        </div>
+
+        {/* Filter Buttons */}
+        <div className="flex gap-2 mb-4">
+          <Button
+            variant={filter === 'daily' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('daily')}
+            className="text-xs"
+          >
+            {isEnglish ? 'Daily' : 'ദിവസം'}
+          </Button>
+          <Button
+            variant={filter === 'weekly' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('weekly')}
+            className="text-xs"
+          >
+            {isEnglish ? 'Weekly' : 'ആഴ്ച'}
+          </Button>
+          <Button
+            variant={filter === 'monthly' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('monthly')}
+            className="text-xs"
+          >
+            {isEnglish ? 'Monthly' : 'മാസം'}
           </Button>
         </div>
 
@@ -250,10 +301,10 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {items.length === 0 ? (
+            {filteredItems.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground text-lg">
-                  {isEnglish ? "No purchases recorded yet" : "ഇതുവരെ വാങ്ങലുകൾ രേഖപ്പെടുത്തിയിട്ടില്ല"}
+                  {isEnglish ? "No purchases found for this period" : "ഈ കാലയളവിൽ വാങ്ങലുകൾ കണ്ടെത്തിയില്ല"}
                 </p>
               </div>
             ) : (
@@ -288,7 +339,7 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                     </tr>
                   </thead>
                   <tbody className="bg-card">
-                    {items.map((item) => (
+                    {filteredItems.map((item) => (
                       <tr key={item.id} className="border-b hover:bg-muted/50">
                         <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
                           {item.transaction_id}
