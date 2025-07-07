@@ -118,27 +118,27 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-3 gap-3">
           <Card>
-            <CardContent className="p-6 text-center">
-              <div className="text-3xl font-bold text-blue-600 mb-2">{totalSuppliers}</div>
-              <div className="text-sm text-muted-foreground">
+            <CardContent className="p-3 text-center">
+              <div className="text-xl font-bold text-blue-600 mb-1">{totalSuppliers}</div>
+              <div className="text-xs text-muted-foreground">
                 {isEnglish ? "Total Suppliers" : "മൊത്തം വിതരണക്കാർ"}
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-6 text-center">
-              <div className="text-3xl font-bold text-red-600 mb-2">₹{totalOutstanding.toLocaleString()}</div>
-              <div className="text-sm text-muted-foreground">
+            <CardContent className="p-3 text-center">
+              <div className="text-xl font-bold text-red-600 mb-1">₹{totalOutstanding.toLocaleString()}</div>
+              <div className="text-xs text-muted-foreground">
                 {isEnglish ? "Total Outstanding" : "മൊത്തം ബാക്കി"}
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-6 text-center">
-              <div className="text-3xl font-bold text-green-600 mb-2">₹{totalPurchases.toLocaleString()}</div>
-              <div className="text-sm text-muted-foreground">
+            <CardContent className="p-3 text-center">
+              <div className="text-xl font-bold text-green-600 mb-1">₹{totalPurchases.toLocaleString()}</div>
+              <div className="text-xs text-muted-foreground">
                 {isEnglish ? "Total Purchases" : "മൊത്തം വാങ്ങലുകൾ"}
               </div>
             </CardContent>
