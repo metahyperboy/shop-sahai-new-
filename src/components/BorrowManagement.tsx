@@ -68,52 +68,112 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
 
   const isEnglish = language === "english";
 
-  const addItem = () => {
+  const addItem = async () => {
     if (newItem.name && newItem.totalGiven) {
       const totalGiven = parseFloat(newItem.totalGiven) || 0;
       const amountPaid = parseFloat(newItem.amountPaid) || 0;
       const balance = totalGiven - amountPaid;
 
-      const item: BorrowItem = {
-        id: `b${items.length + 1}`,
-        name: newItem.name,
-        date: new Date().toLocaleDateString(),
-        totalGiven,
-        amountPaid,
-        balance
-      };
+      try {
+        const { data, error } = await supabase
+          .from('borrows')
+          .insert({
+            borrower_name: newItem.name,
+            total_given: totalGiven,
+            amount_paid: amountPaid,
+            balance: balance,
+            user_id: (await supabase.auth.getUser()).data.user?.id || ''
+          })
+          .select()
+          .single();
 
-      setItems([...items, item]);
-      setNewItem({ name: "", totalGiven: "", amountPaid: "" });
+        if (error) throw error;
+
+        setItems([...items, data]);
+        setNewItem({ name: "", totalGiven: "", amountPaid: "" });
+        toast({
+          title: "Success",
+          description: "Borrow record added successfully",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to add borrow record",
+          variant: "destructive",
+        });
+      }
     }
   };
 
-  const deleteItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
+  const deleteItem = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('borrows')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setItems(items.filter(item => item.id !== id));
+      toast({
+        title: "Success",
+        description: "Borrow record deleted successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete borrow record",
+        variant: "destructive",
+      });
+    }
   };
 
   const startEdit = (item: BorrowItem) => {
     setEditingId(item.id);
     setEditItem({
-      name: item.name,
-      totalGiven: item.totalGiven.toString(),
-      amountPaid: item.amountPaid.toString()
+      name: item.borrower_name,
+      totalGiven: item.total_given.toString(),
+      amountPaid: item.amount_paid.toString()
     });
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (editingId && editItem.name && editItem.totalGiven) {
       const totalGiven = parseFloat(editItem.totalGiven) || 0;
       const amountPaid = parseFloat(editItem.amountPaid) || 0;
       const balance = totalGiven - amountPaid;
 
-      setItems(items.map(item => 
-        item.id === editingId 
-          ? { ...item, name: editItem.name, totalGiven, amountPaid, balance }
-          : item
-      ));
-      setEditingId(null);
-      setEditItem({ name: "", totalGiven: "", amountPaid: "" });
+      try {
+        const { error } = await supabase
+          .from('borrows')
+          .update({
+            borrower_name: editItem.name,
+            total_given: totalGiven,
+            amount_paid: amountPaid,
+            balance: balance
+          })
+          .eq('id', editingId);
+
+        if (error) throw error;
+
+        setItems(items.map(item => 
+          item.id === editingId 
+            ? { ...item, borrower_name: editItem.name, total_given: totalGiven, amount_paid: amountPaid, balance }
+            : item
+        ));
+        setEditingId(null);
+        setEditItem({ name: "", totalGiven: "", amountPaid: "" });
+        toast({
+          title: "Success",
+          description: "Borrow record updated successfully",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to update borrow record",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -124,7 +184,15 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
 
   const totalBorrowers = items.length;
   const totalOutstanding = items.reduce((sum, item) => sum + item.balance, 0);
-  const totalGiven = items.reduce((sum, item) => sum + item.totalGiven, 0);
+  const totalGiven = items.reduce((sum, item) => sum + item.total_given, 0);
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -227,10 +295,10 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
                               className="h-8 text-sm"
                             />
                           ) : (
-                            item.name
+                            item.borrower_name
                           )}
                         </td>
-                        <td className="p-3 text-sm text-muted-foreground">{item.date}</td>
+                        <td className="p-3 text-sm text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</td>
                         <td className="p-3 text-sm font-medium">
                           {editingId === item.id ? (
                             <Input
@@ -240,7 +308,7 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
                               className="h-8 text-sm"
                             />
                           ) : (
-                            `₹${item.totalGiven.toLocaleString()}`
+                            `₹${item.total_given.toLocaleString()}`
                           )}
                         </td>
                         <td className="p-3 text-sm font-medium">
@@ -252,7 +320,7 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
                               className="h-8 text-sm"
                             />
                           ) : (
-                            `₹${item.amountPaid.toLocaleString()}`
+                            `₹${item.amount_paid.toLocaleString()}`
                           )}
                         </td>
                         <td className="p-3 text-sm font-semibold">

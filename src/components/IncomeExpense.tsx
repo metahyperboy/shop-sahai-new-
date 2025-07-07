@@ -18,7 +18,7 @@ interface Transaction {
   type: "income" | "expense";
   amount: number;
   category: string;
-  description: string;
+  description: string | null;
   created_at: string;
 }
 
@@ -36,7 +36,10 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTransactions(data || []);
+      setTransactions((data || []).map(item => ({
+        ...item,
+        type: item.type as "income" | "expense"
+      })));
     } catch (error) {
       toast({
         title: "Error",
@@ -69,24 +72,60 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
       : ["യാത്ര", "ഭക്ഷണം", "യൂട്ടിലിറ്റി", "സാധനങ്ങൾ", "മറ്റുള്ളവ"]
   };
 
-  const addTransaction = () => {
+  const addTransaction = async () => {
     if (newTransaction.amount && newTransaction.category) {
-      const transaction: Transaction = {
-        id: `t${transactions.length + 1}`,
-        type: newTransaction.type as "income" | "expense",
-        amount: parseFloat(newTransaction.amount),
-        category: newTransaction.category,
-        description: newTransaction.description,
-        date: new Date().toLocaleDateString()
-      };
+      try {
+        const { data, error } = await supabase
+          .from('transactions')
+          .insert({
+            type: newTransaction.type,
+            amount: parseFloat(newTransaction.amount),
+            category: newTransaction.category,
+            description: newTransaction.description || null,
+            user_id: (await supabase.auth.getUser()).data.user?.id || ''
+          })
+          .select()
+          .single();
 
-      setTransactions([...transactions, transaction]);
-      setNewTransaction({ type: "income", amount: "", category: "", description: "" });
+        if (error) throw error;
+
+        setTransactions([{...data, type: data.type as "income" | "expense"}, ...transactions]);
+        setNewTransaction({ type: "income", amount: "", category: "", description: "" });
+        toast({
+          title: "Success",
+          description: "Transaction added successfully",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to add transaction",
+          variant: "destructive",
+        });
+      }
     }
   };
 
-  const deleteTransaction = (id: string) => {
-    setTransactions(transactions.filter(t => t.id !== id));
+  const deleteTransaction = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setTransactions(transactions.filter(t => t.id !== id));
+      toast({
+        title: "Success",
+        description: "Transaction deleted successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete transaction",
+        variant: "destructive",
+      });
+    }
   };
 
   const totalIncome = transactions
@@ -96,6 +135,14 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
   const totalExpense = transactions
     .filter(t => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
+
+  if (loading) {
+    return (
+      <div className="p-4 flex items-center justify-center h-full">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4 h-full overflow-y-auto">
@@ -229,7 +276,7 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
                         {transaction.description && (
                           <p className="text-sm text-muted-foreground">{transaction.description}</p>
                         )}
-                        <p className="text-xs text-muted-foreground">{transaction.date}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(transaction.created_at).toLocaleDateString()}</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
