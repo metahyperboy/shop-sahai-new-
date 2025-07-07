@@ -1,10 +1,11 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit, Trash2, Check, X } from "lucide-react";
-import { useState } from "react";
+import { Plus, Trash2, Edit, Check, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface ItemPurchaseProps {
   language: string;
@@ -12,96 +13,185 @@ interface ItemPurchaseProps {
 
 interface PurchaseItem {
   id: string;
-  name: string;
-  date: string;
-  product: string;
-  totalAmount: number;
-  amountGiven: number;
+  supplier_name: string;
+  created_at: string;
+  total_amount: number;
+  amount_paid: number;
   balance: number;
 }
 
 const ItemPurchase = ({ language }: ItemPurchaseProps) => {
   const [items, setItems] = useState<PurchaseItem[]>([]);
   const [newItem, setNewItem] = useState({
-    name: "",
-    product: "",
+    supplierName: "",
     totalAmount: "",
-    amountGiven: ""
+    amountPaid: ""
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<{
-    name: string;
-    product: string;
+    supplierName: string;
     totalAmount: string;
-    amountGiven: string;
+    amountPaid: string;
   }>({
-    name: "",
-    product: "",
+    supplierName: "",
     totalAmount: "",
-    amountGiven: ""
+    amountPaid: ""
   });
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   const isEnglish = language === "english";
 
-  const addItem = () => {
-    if (newItem.name && newItem.product && newItem.totalAmount) {
-      const totalAmount = parseFloat(newItem.totalAmount) || 0;
-      const amountGiven = parseFloat(newItem.amountGiven) || 0;
-      const balance = totalAmount - amountGiven;
+  // Fetch purchases from Supabase
+  const fetchPurchases = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('purchases')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      const item: PurchaseItem = {
-        id: `s${items.length + 1}`,
-        name: newItem.name,
-        date: new Date().toLocaleDateString(),
-        product: newItem.product,
-        totalAmount,
-        amountGiven,
-        balance
-      };
-
-      setItems([...items, item]);
-      setNewItem({ name: "", product: "", totalAmount: "", amountGiven: "" });
+      if (error) throw error;
+      setItems(data || []);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch purchases",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const deleteItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
+  useEffect(() => {
+    fetchPurchases();
+  }, []);
+
+  const addItem = async () => {
+    if (newItem.supplierName && newItem.totalAmount) {
+      const totalAmount = parseFloat(newItem.totalAmount) || 0;
+      const amountPaid = parseFloat(newItem.amountPaid) || 0;
+      const balance = totalAmount - amountPaid;
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { error } = await supabase
+          .from('purchases')
+          .insert({
+            user_id: user.id,
+            supplier_name: newItem.supplierName,
+            total_amount: totalAmount,
+            amount_paid: amountPaid,
+            balance
+          });
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Purchase added successfully",
+        });
+
+        setNewItem({ supplierName: "", totalAmount: "", amountPaid: "" });
+        fetchPurchases();
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to add purchase",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const deleteItem = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('purchases')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Purchase deleted successfully",
+      });
+
+      fetchPurchases();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete purchase",
+        variant: "destructive",
+      });
+    }
   };
 
   const startEdit = (item: PurchaseItem) => {
     setEditingId(item.id);
     setEditItem({
-      name: item.name,
-      product: item.product,
-      totalAmount: item.totalAmount.toString(),
-      amountGiven: item.amountGiven.toString()
+      supplierName: item.supplier_name,
+      totalAmount: item.total_amount.toString(),
+      amountPaid: item.amount_paid.toString()
     });
   };
 
-  const saveEdit = () => {
-    if (editingId && editItem.name && editItem.product && editItem.totalAmount) {
+  const saveEdit = async () => {
+    if (editingId && editItem.supplierName && editItem.totalAmount) {
       const totalAmount = parseFloat(editItem.totalAmount) || 0;
-      const amountGiven = parseFloat(editItem.amountGiven) || 0;
-      const balance = totalAmount - amountGiven;
+      const amountPaid = parseFloat(editItem.amountPaid) || 0;
+      const balance = totalAmount - amountPaid;
 
-      setItems(items.map(item => 
-        item.id === editingId 
-          ? { ...item, name: editItem.name, product: editItem.product, totalAmount, amountGiven, balance }
-          : item
-      ));
-      setEditingId(null);
-      setEditItem({ name: "", product: "", totalAmount: "", amountGiven: "" });
+      try {
+        const { error } = await supabase
+          .from('purchases')
+          .update({
+            supplier_name: editItem.supplierName,
+            total_amount: totalAmount,
+            amount_paid: amountPaid,
+            balance
+          })
+          .eq('id', editingId);
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Purchase updated successfully",
+        });
+
+        setEditingId(null);
+        setEditItem({ supplierName: "", totalAmount: "", amountPaid: "" });
+        fetchPurchases();
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to update purchase",
+          variant: "destructive",
+        });
+      }
     }
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditItem({ name: "", product: "", totalAmount: "", amountGiven: "" });
+    setEditItem({ supplierName: "", totalAmount: "", amountPaid: "" });
   };
 
   const totalSuppliers = items.length;
   const totalOutstanding = items.reduce((sum, item) => sum + item.balance, 0);
-  const totalPurchases = items.reduce((sum, item) => sum + item.totalAmount, 0);
+  const totalPurchases = items.reduce((sum, item) => sum + item.total_amount, 0);
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -167,16 +257,10 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                   <thead>
                     <tr className="border-b bg-muted/30">
                       <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                        {isEnglish ? "Number" : "നമ്പർ"}
-                      </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                         {isEnglish ? "Supplier Name" : "വിതരണക്കാരന്റെ പേര്"}
                       </th>
                       <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                         {isEnglish ? "Date" : "തീയതി"}
-                      </th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                        {isEnglish ? "Product" : "ഉൽപ്പന്നം"}
                       </th>
                       <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                         {isEnglish ? "Total Amount" : "മൊത്തം തുക"}
@@ -196,32 +280,20 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                     </tr>
                   </thead>
                   <tbody className="bg-white">
-                    {items.map((item, index) => (
+                    {items.map((item) => (
                       <tr key={item.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3 text-sm font-medium">{item.id}</td>
                         <td className="p-3 text-sm font-medium">
                           {editingId === item.id ? (
                             <Input
-                              value={editItem.name}
-                              onChange={(e) => setEditItem({...editItem, name: e.target.value})}
+                              value={editItem.supplierName}
+                              onChange={(e) => setEditItem({...editItem, supplierName: e.target.value})}
                               className="h-8 text-sm"
                             />
                           ) : (
-                            item.name
+                            item.supplier_name
                           )}
                         </td>
-                        <td className="p-3 text-sm text-muted-foreground">{item.date}</td>
-                        <td className="p-3 text-sm">
-                          {editingId === item.id ? (
-                            <Input
-                              value={editItem.product}
-                              onChange={(e) => setEditItem({...editItem, product: e.target.value})}
-                              className="h-8 text-sm"
-                            />
-                          ) : (
-                            item.product
-                          )}
-                        </td>
+                        <td className="p-3 text-sm text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</td>
                         <td className="p-3 text-sm font-medium">
                           {editingId === item.id ? (
                             <Input
@@ -231,19 +303,19 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                               className="h-8 text-sm"
                             />
                           ) : (
-                            `₹${item.totalAmount.toLocaleString()}`
+                            `₹${item.total_amount.toLocaleString()}`
                           )}
                         </td>
                         <td className="p-3 text-sm font-medium">
                           {editingId === item.id ? (
                             <Input
                               type="number"
-                              value={editItem.amountGiven}
-                              onChange={(e) => setEditItem({...editItem, amountGiven: e.target.value})}
+                              value={editItem.amountPaid}
+                              onChange={(e) => setEditItem({...editItem, amountPaid: e.target.value})}
                               className="h-8 text-sm"
                             />
                           ) : (
-                            `₹${item.amountGiven.toLocaleString()}`
+                            `₹${item.amount_paid.toLocaleString()}`
                           )}
                         </td>
                         <td className="p-3 text-sm font-semibold">
@@ -323,32 +395,17 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="supplier-name" className="text-sm font-medium">
-                  {isEnglish ? "Supplier Name" : "വിതരണക്കാരന്റെ പേര്"}
-                </Label>
-                <Input
-                  id="supplier-name"
-                  value={newItem.name}
-                  onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                  placeholder={isEnglish ? "Enter supplier name" : "വിതരണക്കാരന്റെ പേര് നൽകുക"}
-                  className="h-11"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="product-name" className="text-sm font-medium">
-                  {isEnglish ? "Product Name" : "ഉൽപ്പന്നത്തിന്റെ പേര്"}
-                </Label>
-                <Input
-                  id="product-name"
-                  value={newItem.product}
-                  onChange={(e) => setNewItem({ ...newItem, product: e.target.value })}
-                  placeholder={isEnglish ? "Enter product name" : "ഉൽപ്പന്നത്തിന്റെ പേര് നൽകുക"}
-                  className="h-11"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="supplier-name" className="text-sm font-medium">
+                {isEnglish ? "Supplier Name" : "വിതരണക്കാരന്റെ പേര്"}
+              </Label>
+              <Input
+                id="supplier-name"
+                value={newItem.supplierName}
+                onChange={(e) => setNewItem({ ...newItem, supplierName: e.target.value })}
+                placeholder={isEnglish ? "Enter supplier name" : "വിതരണക്കാരന്റെ പേര് നൽകുക"}
+                className="h-11"
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -373,8 +430,8 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
                 <Input
                   id="amount-given"
                   type="number"
-                  value={newItem.amountGiven}
-                  onChange={(e) => setNewItem({ ...newItem, amountGiven: e.target.value })}
+                  value={newItem.amountPaid}
+                  onChange={(e) => setNewItem({ ...newItem, amountPaid: e.target.value })}
                   placeholder="₹0"
                   className="h-11"
                 />

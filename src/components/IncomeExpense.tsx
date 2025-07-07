@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
-import { useState } from "react";
+import { Plus, Trash2, TrendingUp, TrendingDown, Edit, Check, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface IncomeExpenseProps {
   language: string;
@@ -17,11 +19,38 @@ interface Transaction {
   amount: number;
   category: string;
   description: string;
-  date: string;
+  created_at: string;
 }
 
 const IncomeExpense = ({ language }: IncomeExpenseProps) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  // Fetch transactions from Supabase
+  const fetchTransactions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTransactions(data || []);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch transactions",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
   const [newTransaction, setNewTransaction] = useState({
     type: "income",
     amount: "",

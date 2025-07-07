@@ -1,8 +1,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Users, Mic, Settings } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Users, Mic, Settings, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import ItemPurchase from "@/components/ItemPurchase";
 import BorrowManagement from "@/components/BorrowManagement";
 import IncomeExpense from "@/components/IncomeExpense";
@@ -16,6 +17,10 @@ const Index = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [language, setLanguage] = useState("english");
   const [userName, setUserName] = useState("User");
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   // Apply dark mode to document
   useEffect(() => {
@@ -195,6 +200,15 @@ const Index = () => {
             aria-label={language === "malayalam" ? "ക്രമീകരണങ്ങൾ" : "Settings"}
           >
             <Settings className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={handleLogout}
+            className="p-2"
+            aria-label={language === "malayalam" ? "ലോഗ് ഔട്ട്" : "Logout"}
+          >
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </header>

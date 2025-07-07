@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Edit, Check, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface BorrowManagementProps {
   language: string;
@@ -12,15 +14,42 @@ interface BorrowManagementProps {
 
 interface BorrowItem {
   id: string;
-  name: string;
-  date: string;
-  totalGiven: number;
-  amountPaid: number;
+  borrower_name: string;
+  created_at: string;
+  total_given: number;
+  amount_paid: number;
   balance: number;
 }
 
 const BorrowManagement = ({ language }: BorrowManagementProps) => {
   const [items, setItems] = useState<BorrowItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  // Fetch borrows from Supabase
+  const fetchBorrows = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('borrows')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setItems(data || []);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch borrows",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBorrows();
+  }, []);
   const [newItem, setNewItem] = useState({
     name: "",
     totalGiven: "",
