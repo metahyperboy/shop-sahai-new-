@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { X, Mic, MicOff, Volume2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VoiceAssistantProps {
   onClose: () => void;
@@ -86,39 +87,139 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
   const processVoiceCommand = async (command: string) => {
     setIsProcessing(true);
     
-    // Simple command processing - in a real app, this would connect to your backend
     const lowerCommand = command.toLowerCase();
-    
     let responseText = "";
     
-    // Income commands
-    if (lowerCommand.includes("income") || lowerCommand.includes("വരുമാനം")) {
+    try {
+      // Extract amount from command
+      const amountMatch = lowerCommand.match(/(\d+)/);
+      const amount = amountMatch ? parseFloat(amountMatch[1]) : null;
+      
+      // Income commands
+      if (lowerCommand.includes("income") || lowerCommand.includes("വരുമാനം")) {
+        if (amount) {
+          const category = lowerCommand.includes("sales") || lowerCommand.includes("വിൽപന") ? (isEnglish ? "Sales" : "വിൽപന") :
+                          lowerCommand.includes("service") || lowerCommand.includes("സേവനം") ? (isEnglish ? "Service" : "സേവനം") :
+                          lowerCommand.includes("investment") || lowerCommand.includes("നിക്ഷേപം") ? (isEnglish ? "Investment" : "നിക്ഷേപം") :
+                          (isEnglish ? "Other" : "മറ്റുള്ളവ");
+          
+          const { data, error } = await supabase
+            .from('transactions')
+            .insert({
+              type: 'income',
+              amount: amount,
+              category: category,
+              description: `Added via voice: ${command}`,
+              user_id: (await supabase.auth.getUser()).data.user?.id || ''
+            });
+
+          if (error) throw error;
+          
+          responseText = isEnglish 
+            ? `Successfully added income of ₹${amount} in ${category} category.`
+            : `₹${amount} വരുമാനം ${category} വിഭാഗത്തിൽ വിജയകരമായി ചേർത്തു.`;
+        } else {
+          responseText = isEnglish 
+            ? "Please specify the amount. Try: 'Add income 500 rupees'"
+            : "തുക വ്യക്തമാക്കുക. ശ്രമിക്കുക: '500 രൂപ വരുമാനം ചേർക്കുക'";
+        }
+      }
+      // Expense commands
+      else if (lowerCommand.includes("expense") || lowerCommand.includes("ചെലവ്")) {
+        if (amount) {
+          const category = lowerCommand.includes("travel") || lowerCommand.includes("യാത്ര") ? (isEnglish ? "Travel" : "യാത്ര") :
+                          lowerCommand.includes("food") || lowerCommand.includes("ഭക്ഷണം") ? (isEnglish ? "Food" : "ഭക്ഷണം") :
+                          lowerCommand.includes("utilities") || lowerCommand.includes("യൂട്ടിലിറ്റി") ? (isEnglish ? "Utilities" : "യൂട്ടിലിറ്റി") :
+                          lowerCommand.includes("supplies") || lowerCommand.includes("സാധനങ്ങൾ") ? (isEnglish ? "Supplies" : "സാധനങ്ങൾ") :
+                          (isEnglish ? "Other" : "മറ്റുള്ളവ");
+          
+          const { data, error } = await supabase
+            .from('transactions')
+            .insert({
+              type: 'expense',
+              amount: amount,
+              category: category,
+              description: `Added via voice: ${command}`,
+              user_id: (await supabase.auth.getUser()).data.user?.id || ''
+            });
+
+          if (error) throw error;
+          
+          responseText = isEnglish 
+            ? `Successfully added expense of ₹${amount} in ${category} category.`
+            : `₹${amount} ചെലവ് ${category} വിഭാഗത്തിൽ വിജയകരമായി ചേർത്തു.`;
+        } else {
+          responseText = isEnglish 
+            ? "Please specify the amount. Try: 'Add expense 200 for travel'"
+            : "തുക വ്യക്തമാക്കുക. ശ്രമിക്കുക: 'യാത്രയ്ക്ക് 200 ചെലവ് ചേർക്കുക'";
+        }
+      }
+      // Purchase commands
+      else if (lowerCommand.includes("purchase") || lowerCommand.includes("വാങ്ങൽ")) {
+        if (amount) {
+          // Extract supplier name (simple approach - look for "from" keyword)
+          const fromMatch = lowerCommand.match(/from\s+(\w+)/i) || lowerCommand.match(/(\w+)\s+from/i);
+          const supplierName = fromMatch ? fromMatch[1] : (isEnglish ? "Unknown Supplier" : "അജ്ഞാത വിതരണക്കാരൻ");
+          
+          const { data, error } = await supabase
+            .from('purchases')
+            .insert({
+              supplier_name: supplierName,
+              total_amount: amount,
+              amount_paid: 0,
+              balance: amount,
+              user_id: (await supabase.auth.getUser()).data.user?.id || ''
+            });
+
+          if (error) throw error;
+          
+          responseText = isEnglish 
+            ? `Successfully recorded purchase of ₹${amount} from ${supplierName}.`
+            : `${supplierName} ൽ നിന്ന് ₹${amount} വാങ്ങൽ വിജയകരമായി രേഖപ്പെടുത്തി.`;
+        } else {
+          responseText = isEnglish 
+            ? "Please specify the amount. Try: 'Purchase 1000 from supplier ABC'"
+            : "തുക വ്യക്തമാക്കുക. ശ്രമിക്കുക: 'ABC വിതരണക്കാരനിൽ നിന്ന് 1000 വാങ്ങൽ'";
+        }
+      }
+      // Borrow commands
+      else if (lowerCommand.includes("borrow") || lowerCommand.includes("കടം")) {
+        if (amount) {
+          // Extract person name (simple approach - look for common patterns)
+          const nameMatch = lowerCommand.match(/(?:to|from|give|gave)\s+(\w+)/i) || lowerCommand.match(/(\w+)\s+(?:borrowed|gave|give)/i);
+          const borrowerName = nameMatch ? nameMatch[1] : (isEnglish ? "Unknown Person" : "അജ്ഞാത വ്യക്തി");
+          
+          const { data, error } = await supabase
+            .from('borrows')
+            .insert({
+              borrower_name: borrowerName,
+              total_given: amount,
+              amount_paid: 0,
+              balance: amount,
+              user_id: (await supabase.auth.getUser()).data.user?.id || ''
+            });
+
+          if (error) throw error;
+          
+          responseText = isEnglish 
+            ? `Successfully recorded ₹${amount} borrowed by ${borrowerName}.`
+            : `${borrowerName} കടം വാങ്ങിയ ₹${amount} വിജയകരമായി രേഖപ്പെടുത്തി.`;
+        } else {
+          responseText = isEnglish 
+            ? "Please specify the amount. Try: 'John borrowed 500 rupees'"
+            : "തുക വ്യക്തമാക്കുക. ശ്രമിക്കുക: 'ജോൺ 500 രൂപ കടം വാങ്ങി'";
+        }
+      }
+      else {
+        responseText = isEnglish 
+          ? "I can help you add income, expenses, purchases, and borrowing. Try commands like 'Add income 500' or 'Expense 200 for food'."
+          : "വരുമാനം, ചെലവുകൾ, വാങ്ങലുകൾ, കടം എന്നിവ ചേർക്കാൻ ഞാൻ സഹായിക്കാം. '500 വരുമാനം ചേർക്കുക' അല്ലെങ്കിൽ 'ഭക്ഷണത്തിന് 200 ചെലവ്' പോലെ പറയുക.";
+      }
+    } catch (error) {
+      console.error('Error processing voice command:', error);
       responseText = isEnglish 
-        ? "I'll help you add income. Please specify the amount and category."
-        : "വരുമാനം ചേർക്കാൻ ഞാൻ സഹായിക്കാം. തുകയും വിഭാഗവും വ്യക്തമാക്കുക.";
-    }
-    // Expense commands
-    else if (lowerCommand.includes("expense") || lowerCommand.includes("ചെലവ്")) {
-      responseText = isEnglish 
-        ? "I'll help you add an expense. Please specify the amount and purpose."
-        : "ചെലവ് ചേർക്കാൻ ഞാൻ സഹായിക്കാം. തുകയും ഉദ്ദേശ്യവും വ്യക്തമാക്കുക.";
-    }
-    // Purchase commands
-    else if (lowerCommand.includes("purchase") || lowerCommand.includes("വാങ്ങൽ")) {
-      responseText = isEnglish 
-        ? "I'll help you record a purchase. Please provide supplier name, product, and amounts."
-        : "വാങ്ങൽ രേഖപ്പെടുത്താൻ ഞാൻ സഹായിക്കാം. വിതരണക്കാരൻ, ഉൽപ്പാദനം, തുകകൾ എന്നിവ നൽകുക.";
-    }
-    // Borrow commands
-    else if (lowerCommand.includes("borrow") || lowerCommand.includes("കടം")) {
-      responseText = isEnglish 
-        ? "I'll help you record borrowing details. Please specify the person's name and amount."
-        : "കടം വിവരങ്ങൾ രേഖപ്പെടുത്താൻ ഞാൻ സഹായിക്കാം. വ്യക്തിയുടെ പേരും തുകയും വ്യക്തമാക്കുക.";
-    }
-    else {
-      responseText = isEnglish 
-        ? "I can help you with income, expenses, purchases, and borrowing. What would you like to do?"
-        : "വരുമാനം, ചെലവുകൾ, വാങ്ങലുകൾ, കടം എന്നിവയിൽ ഞാൻ സഹായിക്കാം. നിങ്ങൾ എന്താണ് ചെയ്യാൻ ആഗ്രഹിക്കുന്നത്?";
+        ? "Sorry, there was an error processing your request. Please try again."
+        : "ക്ഷമിക്കണം, നിങ്ങളുടെ അഭ്യർത്ഥന പ്രോസസ്സ് ചെയ്യുന്നതിൽ പിശക്. ദയവായി വീണ്ടും ശ്രമിക്കുക.";
     }
     
     setResponse(responseText);
@@ -206,8 +307,8 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
             </p>
             <p className="text-xs text-muted-foreground">
               {isEnglish 
-                ? "Try: 'Add income 500 rupees' or 'New expense 200 for travel'" 
-                : "ശ്രമിക്കുക: '500 രൂപ വരുമാനം ചേർക്കുക' അല്ലെങ്കിൽ 'യാത്രയ്ക്ക് 200 ചെലവ്'"
+                ? "Try: 'Income 500 from sales' or 'Expense 200 for food' or 'Purchase 1000 from ABC' or 'John borrowed 500'"
+                : "ശ്രമിക്കുക: 'വിൽപനയിൽ നിന്ന് 500 വരുമാനം' അല്ലെങ്കിൽ 'ഭക്ഷണത്തിന് 200 ചെലവ്' അല്ലെങ്കിൽ 'ABC യിൽ നിന്ന് 1000 വാങ്ങൽ'"
               }
             </p>
           </div>
