@@ -165,11 +165,12 @@ const Index = () => {
 
     // Render filter buttons for all pages
     const FilterButtons = () => (
-      <div className="flex gap-2 mb-4 p-4">
+      <div className="flex flex-wrap gap-1 sm:gap-2 mb-4 p-4">
         <Button
           variant={filter === 'daily' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setFilter('daily')}
+          className="text-xs sm:text-sm flex-1 min-w-0"
         >
           {language === "malayalam" ? "ദൈനിക" : "Daily"}
         </Button>
@@ -177,6 +178,7 @@ const Index = () => {
           variant={filter === 'weekly' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setFilter('weekly')}
+          className="text-xs sm:text-sm flex-1 min-w-0"
         >
           {language === "malayalam" ? "പ്രതിവാരം" : "Weekly"}
         </Button>
@@ -184,6 +186,7 @@ const Index = () => {
           variant={filter === 'monthly' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setFilter('monthly')}
+          className="text-xs sm:text-sm flex-1 min-w-0"
         >
           {language === "malayalam" ? "പ്രതിമാസം" : "Monthly"}
         </Button>
@@ -191,6 +194,7 @@ const Index = () => {
           variant={filter === 'all' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setFilter('all')}
+          className="text-xs sm:text-sm flex-1 min-w-0"
         >
           {language === "malayalam" ? "എല്ലാം" : "All"}
         </Button>
@@ -202,14 +206,14 @@ const Index = () => {
         return (
           <>
             <FilterButtons />
-            <ItemPurchase language={language} />
+            <ItemPurchase language={language} filter={filter} />
           </>
         );
       case "borrow":
         return (
           <>
             <FilterButtons />
-            <BorrowManagement language={language} />
+            <BorrowManagement language={language} filter={filter} />
           </>
         );
       case "income-expense":

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface BorrowManagementProps {
   language: string;
+  filter?: string;
 }
 
 interface BorrowItem {
@@ -22,11 +23,10 @@ interface BorrowItem {
   transaction_id: string;
 }
 
-const BorrowManagement = ({ language }: BorrowManagementProps) => {
+const BorrowManagement = ({ language, filter = 'monthly' }: BorrowManagementProps) => {
   const [items, setItems] = useState<BorrowItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [filter, setFilter] = useState('monthly');
   const { toast } = useToast();
 
   // Fetch borrows from Supabase
@@ -206,6 +206,8 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
         return items.filter(item => new Date(item.created_at) >= startOfWeek);
       case 'monthly':
         return items.filter(item => new Date(item.created_at) >= startOfMonth);
+      case 'all':
+        return items;
       default:
         return items;
     }
@@ -239,33 +241,6 @@ const BorrowManagement = ({ language }: BorrowManagementProps) => {
           </Button>
         </div>
 
-        {/* Filter Buttons */}
-        <div className="flex gap-2 mb-4">
-          <Button
-            variant={filter === 'daily' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('daily')}
-            className="text-xs"
-          >
-            {isEnglish ? 'Daily' : 'ദിവസം'}
-          </Button>
-          <Button
-            variant={filter === 'weekly' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('weekly')}
-            className="text-xs"
-          >
-            {isEnglish ? 'Weekly' : 'ആഴ്ച'}
-          </Button>
-          <Button
-            variant={filter === 'monthly' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('monthly')}
-            className="text-xs"
-          >
-            {isEnglish ? 'Monthly' : 'മാസം'}
-          </Button>
-        </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-3 gap-3">

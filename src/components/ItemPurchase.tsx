@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface ItemPurchaseProps {
   language: string;
+  filter?: string;
 }
 
 interface PurchaseItem {
@@ -21,9 +22,8 @@ interface PurchaseItem {
   transaction_id: string;
 }
 
-const ItemPurchase = ({ language }: ItemPurchaseProps) => {
+const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
   const [items, setItems] = useState<PurchaseItem[]>([]);
-  const [filter, setFilter] = useState('monthly');
   const [newItem, setNewItem] = useState({
     supplierName: "",
     totalAmount: "",
@@ -202,6 +202,8 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
         return items.filter(item => new Date(item.created_at) >= startOfWeek);
       case 'monthly':
         return items.filter(item => new Date(item.created_at) >= startOfMonth);
+      case 'all':
+        return items;
       default:
         return items;
     }
@@ -235,33 +237,6 @@ const ItemPurchase = ({ language }: ItemPurchaseProps) => {
           </Button>
         </div>
 
-        {/* Filter Buttons */}
-        <div className="flex gap-2 mb-4">
-          <Button
-            variant={filter === 'daily' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('daily')}
-            className="text-xs"
-          >
-            {isEnglish ? 'Daily' : 'ദിവസം'}
-          </Button>
-          <Button
-            variant={filter === 'weekly' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('weekly')}
-            className="text-xs"
-          >
-            {isEnglish ? 'Weekly' : 'ആഴ്ച'}
-          </Button>
-          <Button
-            variant={filter === 'monthly' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('monthly')}
-            className="text-xs"
-          >
-            {isEnglish ? 'Monthly' : 'മാസം'}
-          </Button>
-        </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-3 gap-3">
