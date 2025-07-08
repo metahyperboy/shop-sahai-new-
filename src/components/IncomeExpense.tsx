@@ -173,11 +173,12 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
   return (
     <div className="p-4 space-y-4 h-full overflow-y-auto">
       {/* Filter Buttons */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-wrap gap-1 sm:gap-2 mb-4">
         <Button
           variant={filter === 'daily' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setFilter('daily')}
+          className="text-xs sm:text-sm flex-1 min-w-0"
         >
           {isEnglish ? "Daily" : "ദൈനിക"}
         </Button>
@@ -185,6 +186,7 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
           variant={filter === 'weekly' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setFilter('weekly')}
+          className="text-xs sm:text-sm flex-1 min-w-0"
         >
           {isEnglish ? "Weekly" : "പ്രതിവാരം"}
         </Button>
@@ -192,6 +194,7 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
           variant={filter === 'monthly' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setFilter('monthly')}
+          className="text-xs sm:text-sm flex-1 min-w-0"
         >
           {isEnglish ? "Monthly" : "പ്രതിമാസം"}
         </Button>
@@ -199,6 +202,7 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
           variant={filter === 'all' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setFilter('all')}
+          className="text-xs sm:text-sm flex-1 min-w-0"
         >
           {isEnglish ? "All" : "എല്ലാം"}
         </Button>
