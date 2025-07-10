@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, TrendingUp, TrendingDown, Edit, Check, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,26 +22,47 @@ interface Transaction {
   created_at: string;
 }
 
+const PAGE_SIZE = 20;
+
 const IncomeExpense = ({ language }: IncomeExpenseProps) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filter, setFilter] = useState<'daily' | 'weekly' | 'monthly' | 'all'>('all');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const { toast } = useToast();
 
   // Fetch transactions from Supabase
-  const fetchTransactions = async () => {
+  const fetchTransactions = async (reset = false) => {
+    setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false });
-
+        .select('id,type,amount,category,description,created_at')
+        .order('created_at', { ascending: false })
+        .limit(PAGE_SIZE)
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      if (filter === 'daily') {
+        query = query.gte('created_at', startOfDay.toISOString());
+      } else if (filter === 'weekly') {
+        query = query.gte('created_at', startOfWeek.toISOString());
+      } else if (filter === 'monthly') {
+        query = query.gte('created_at', startOfMonth.toISOString());
+      }
+      const { data, error } = await query;
       if (error) throw error;
-      setTransactions((data || []).map(item => ({
-        ...item,
-        type: item.type as "income" | "expense"
-      })));
+      if (reset) {
+        setTransactions((data || []).map(item => ({ ...item, type: item.type as "income" | "expense" })));
+      } else {
+        setTransactions(prev => [...prev, ...(data || []).map(item => ({ ...item, type: item.type as "income" | "expense" }))]);
+      }
+      setHasMore((data || []).length === PAGE_SIZE);
     } catch (error) {
       toast({
         title: "Error",
@@ -54,8 +75,19 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
   };
 
   useEffect(() => {
-    fetchTransactions();
-  }, []);
+    setPage(1);
+    fetchTransactions(true);
+    const handleDataUpdated = () => {
+      setPage(1);
+      fetchTransactions(true);
+      toast({ title: 'Data Updated', description: 'Transaction data refreshed.', variant: 'default' });
+      console.log('[IncomeExpense] Data updated event received, transactions refreshed.');
+    };
+    window.addEventListener('data-updated', handleDataUpdated);
+    return () => {
+      window.removeEventListener('data-updated', handleDataUpdated);
+    };
+  }, [filter]);
   const [newTransaction, setNewTransaction] = useState({
     type: "income",
     amount: "",
@@ -98,12 +130,16 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
           title: "Success",
           description: "Transaction added successfully",
         });
+        await fetchTransactions();
+        window.dispatchEvent(new CustomEvent('data-updated'));
+        console.log('[IncomeExpense] data-updated event fired after DB write.');
       } catch (error) {
         toast({
           title: "Error",
           description: "Failed to add transaction",
           variant: "destructive",
         });
+        console.error('[IncomeExpense] Error adding transaction:', error);
       } finally {
         setIsSubmitting(false);
       }
@@ -152,15 +188,16 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
     }
   };
 
-  const filteredTransactions = filterTransactions();
+  const filteredTransactions = useMemo(() => transactions, [transactions]);
 
-  const totalIncome = filteredTransactions
-    .filter(t => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0);
+  const totalIncome = useMemo(() => filteredTransactions.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
 
-  const totalExpense = filteredTransactions
-    .filter(t => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0);
+  const totalExpense = useMemo(() => filteredTransactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
+
+  const loadMore = () => {
+    setPage(p => p + 1);
+    fetchTransactions();
+  };
 
   if (loading) {
     return (
@@ -363,6 +400,12 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
           )}
         </CardContent>
       </Card>
+      {/* Load More Button */}
+      {hasMore && !loading && (
+        <div className="flex justify-center mt-4">
+          <Button onClick={loadMore} size="sm">{isEnglish ? "Load More" : "കൂടുതൽ കാണിക്കുക"}</Button>
+        </div>
+      )}
     </div>
   );
 };

@@ -6,6 +6,13 @@
 All colors MUST be HSL.
 */
 
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Malayalam:wght@400;700&display=swap');
+
+.malayalam-text {
+  font-family: 'Noto Sans Malayalam', Manjari, Arial, sans-serif;
+  font-size: 1rem;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

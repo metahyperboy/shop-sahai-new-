@@ -1,0 +1,6 @@
+{
+  "name": "Shop Sahai Ledger",
+  "short_name": "Ledger",
+  "start_url": ".",
+  "display": "standalone"
+}

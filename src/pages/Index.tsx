@@ -15,7 +15,7 @@ const Index = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showVoiceAssistant, setShowVoiceAssistant] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [language, setLanguage] = useState("english");
+  const [language, setLanguage] = useState("malayalam");
   const [userName, setUserName] = useState("User");
   const [transactions, setTransactions] = useState([]);
   const [filter, setFilter] = useState<'daily' | 'weekly' | 'monthly' | 'all'>('all');

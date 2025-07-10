@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Edit, Check, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { universalNumberParser } from "@/services/voiceCommandService";
 
 interface ItemPurchaseProps {
   language: string;
@@ -21,6 +22,8 @@ interface PurchaseItem {
   balance: number;
   transaction_id: string;
 }
+
+const PAGE_SIZE = 20;
 
 const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
   const [items, setItems] = useState<PurchaseItem[]>([]);
@@ -42,19 +45,49 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  // Remove: const [filter, setFilter] = useState<'daily' | 'weekly' | 'monthly' | 'all'>('all');
+  // Use the filter prop or fallback to state
+  // Fix: Ensure initial value for internalFilter is always a valid filter type
+  const [internalFilter, setInternalFilter] = useState<'daily' | 'weekly' | 'monthly' | 'all'>(typeof filter === 'string' ? (filter as 'daily' | 'weekly' | 'monthly' | 'all') : 'monthly');
+  const activeFilter = typeof filter === 'string' ? (filter as 'daily' | 'weekly' | 'monthly' | 'all') : internalFilter;
 
   const isEnglish = language === "english";
 
-  // Fetch purchases from Supabase
-  const fetchPurchases = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('purchases')
-        .select('*')
-        .order('created_at', { ascending: false });
+  // Helper to detect Malayalam text
+  const isMalayalam = (text: string) => /[\u0D00-\u0D7F]/.test(text);
 
+  // Fetch purchases from Supabase
+  const fetchPurchases = async (reset = false) => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('purchases')
+        .select('id,supplier_name,created_at,total_amount,amount_paid,balance,transaction_id')
+        .order('created_at', { ascending: false })
+        .limit(PAGE_SIZE)
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      if (activeFilter === 'daily') {
+        query = query.gte('created_at', startOfDay.toISOString());
+      } else if (activeFilter === 'weekly') {
+        query = query.gte('created_at', startOfWeek.toISOString());
+      } else if (activeFilter === 'monthly') {
+        query = query.gte('created_at', startOfMonth.toISOString());
+      }
+      const { data, error } = await query;
       if (error) throw error;
+      if (reset) {
       setItems(data || []);
+      } else {
+        setItems(prev => [...prev, ...(data || [])]);
+      }
+      setHasMore((data || []).length === PAGE_SIZE);
     } catch (error) {
       toast({
         title: "Error",
@@ -67,43 +100,90 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
   };
 
   useEffect(() => {
-    fetchPurchases();
+    setPage(1);
+    fetchPurchases(true);
+    const handleDataUpdated = () => {
+      setPage(1);
+      fetchPurchases(true);
+      toast({ title: 'Data Updated', description: 'Purchase data refreshed.', variant: 'default' });
+      console.log('[ItemPurchase] Data updated event received, purchases refreshed.');
+    };
+    window.addEventListener('data-updated', handleDataUpdated);
+    return () => {
+      window.removeEventListener('data-updated', handleDataUpdated);
+    };
+  }, [activeFilter]);
+
+  useEffect(() => {
+    const handleAddPurchase = async (e: any) => {
+      const { supplierName, totalAmount, amountPaid } = e.detail || {};
+      if (supplierName && totalAmount) {
+        addItem(supplierName, totalAmount, amountPaid || '');
+      }
+    };
+    window.addEventListener('add-purchase', handleAddPurchase);
+    return () => window.removeEventListener('add-purchase', handleAddPurchase);
   }, []);
 
-  const addItem = async () => {
-    if (newItem.supplierName && newItem.totalAmount && !isSubmitting) {
+  const addItem = async (
+    supplierNameParam?: string,
+    totalAmountParam?: string,
+    amountPaidParam?: string
+  ) => {
+    const supplierName = supplierNameParam ?? newItem.supplierName;
+    let totalAmountStr = totalAmountParam ?? newItem.totalAmount;
+    let amountPaidStr = amountPaidParam ?? newItem.amountPaid;
+    // Convert Malayalam/English number words to digits
+    const parsedTotal = universalNumberParser(totalAmountStr);
+    if (parsedTotal !== null) totalAmountStr = parsedTotal.toString();
+    const parsedPaid = universalNumberParser(amountPaidStr);
+    if (parsedPaid !== null) amountPaidStr = parsedPaid.toString();
+    console.log('[ItemPurchase] addItem called with:', { supplierName, totalAmountStr, amountPaidStr });
+    // Validation
+    if (!supplierName.trim()) {
+      toast({ title: "Validation Error", description: "Supplier name cannot be empty.", variant: "destructive" });
+      return;
+    }
+    if (!totalAmountStr || isNaN(Number(totalAmountStr)) || Number(totalAmountStr) <= 0) {
+      toast({ title: "Validation Error", description: "Total amount must be a positive number.", variant: "destructive" });
+      return;
+    }
+    if (amountPaidStr && (isNaN(Number(amountPaidStr)) || Number(amountPaidStr) < 0)) {
+      toast({ title: "Validation Error", description: "Amount paid must be zero or a positive number.", variant: "destructive" });
+      return;
+    }
+    if (!isSubmitting) {
       setIsSubmitting(true);
-      const totalAmount = parseFloat(newItem.totalAmount) || 0;
-      const amountPaid = parseFloat(newItem.amountPaid) || 0;
+      const totalAmount = parseFloat(totalAmountStr) || 0;
+      const amountPaid = parseFloat(amountPaidStr) || 0;
       const balance = totalAmount - amountPaid;
-
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
+        if (!user) throw new Error('User not authenticated');
         const { error } = await supabase
           .from('purchases')
           .insert({
             user_id: user.id,
-            supplier_name: newItem.supplierName,
+            supplier_name: supplierName,
             total_amount: totalAmount,
             amount_paid: amountPaid,
             balance
           });
-
         if (error) throw error;
-
         toast({
-          title: "Success",
-          description: "Purchase added successfully",
+          title: "Saved!",
+          description: `Supplier: ${supplierName}, Amount: ₹${totalAmount}, Paid: ₹${amountPaid}`,
+          variant: "default"
         });
-
         setNewItem({ supplierName: "", totalAmount: "", amountPaid: "" });
-        fetchPurchases();
-      } catch (error) {
+        await fetchPurchases();
+        window.dispatchEvent(new CustomEvent('data-updated'));
+        console.log('[ItemPurchase] data-updated event fired after DB write.');
+      } catch (error: any) {
+        console.error('[ItemPurchase] Error adding purchase:', error);
         toast({
           title: "Error",
-          description: "Failed to add purchase",
+          description: error.message || "Failed to add purchase",
           variant: "destructive",
         });
       } finally {
@@ -195,7 +275,7 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
     startOfWeek.setDate(now.getDate() - now.getDay());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    switch (filter) {
+    switch (activeFilter) {
       case 'daily':
         return items.filter(item => new Date(item.created_at) >= startOfDay);
       case 'weekly':
@@ -209,10 +289,16 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
     }
   };
 
+  const memoizedItems = useMemo(() => items, [items]);
   const filteredItems = filterPurchases();
   const totalSuppliers = filteredItems.length;
   const totalOutstanding = filteredItems.reduce((sum, item) => sum + item.balance, 0);
   const totalPurchases = filteredItems.reduce((sum, item) => sum + item.total_amount, 0);
+
+  const loadMore = () => {
+    setPage(p => p + 1);
+    fetchPurchases();
+  };
 
   if (loading) {
     return (
@@ -319,7 +405,7 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
                         <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
                           {item.transaction_id}
                         </td>
-                        <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
+                        <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''} ${isMalayalam(item.supplier_name) ? 'malayalam-text' : ''}`}>
                           {editingId === item.id ? (
                             <Input
                               value={editItem.supplierName}
@@ -334,9 +420,14 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
                         <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
                           {editingId === item.id ? (
                             <Input
-                              type="number"
+                              type="text"
                               value={editItem.totalAmount}
-                              onChange={(e) => setEditItem({...editItem, totalAmount: e.target.value})}
+                              onChange={e => {
+                                let val = e.target.value;
+                                const parsed = universalNumberParser(val);
+                                if (parsed !== null) val = parsed.toString();
+                                setEditItem({...editItem, totalAmount: val});
+                              }}
                               className="h-8 text-sm"
                             />
                           ) : (
@@ -346,9 +437,14 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
                         <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
                           {editingId === item.id ? (
                             <Input
-                              type="number"
+                              type="text"
                               value={editItem.amountPaid}
-                              onChange={(e) => setEditItem({...editItem, amountPaid: e.target.value})}
+                              onChange={e => {
+                                let val = e.target.value;
+                                const parsed = universalNumberParser(val);
+                                if (parsed !== null) val = parsed.toString();
+                                setEditItem({...editItem, amountPaid: val});
+                              }}
                               className="h-8 text-sm"
                             />
                           ) : (
@@ -424,6 +520,13 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
           </CardContent>
         </Card>
 
+        {/* Load More Button */}
+        {hasMore && !loading && (
+          <div className="flex justify-center mt-4">
+            <Button onClick={loadMore} size="sm">{isEnglish ? "Load More" : "കൂടുതൽ കാണിക്കുക"}</Button>
+          </div>
+        )}
+
         {/* Add Purchase Form */}
         <Card id="add-form">
           <CardHeader>
@@ -452,9 +555,14 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
                 </Label>
                 <Input
                   id="total-amount"
-                  type="number"
+                  type="text"
                   value={newItem.totalAmount}
-                  onChange={(e) => setNewItem({ ...newItem, totalAmount: e.target.value })}
+                  onChange={e => {
+                    let val = e.target.value;
+                    const parsed = universalNumberParser(val);
+                    if (parsed !== null) val = parsed.toString();
+                    setNewItem({ ...newItem, totalAmount: val });
+                  }}
                   placeholder="₹0"
                   className="h-11"
                 />
@@ -466,16 +574,21 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
                 </Label>
                 <Input
                   id="amount-given"
-                  type="number"
+                  type="text"
                   value={newItem.amountPaid}
-                  onChange={(e) => setNewItem({ ...newItem, amountPaid: e.target.value })}
+                  onChange={e => {
+                    let val = e.target.value;
+                    const parsed = universalNumberParser(val);
+                    if (parsed !== null) val = parsed.toString();
+                    setNewItem({ ...newItem, amountPaid: val });
+                  }}
                   placeholder="₹0"
                   className="h-11"
                 />
               </div>
             </div>
 
-            <Button onClick={addItem} disabled={isSubmitting} className="w-full h-11 text-base">
+            <Button onClick={() => addItem()} disabled={isSubmitting} className="w-full h-11 text-base">
               <Plus className="h-5 w-5 mr-2" />
               {isSubmitting ? "Adding..." : (isEnglish ? "Add Purchase" : "വാങ്ങൽ ചേർക്കുക")}
             </Button>

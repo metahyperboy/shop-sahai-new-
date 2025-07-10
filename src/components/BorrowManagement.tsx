@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Edit, Check, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { universalNumberParser } from "@/services/voiceCommandService";
 
 interface BorrowManagementProps {
   language: string;
@@ -23,22 +24,48 @@ interface BorrowItem {
   transaction_id: string;
 }
 
+const PAGE_SIZE = 20;
+
 const BorrowManagement = ({ language, filter = 'monthly' }: BorrowManagementProps) => {
   const [items, setItems] = useState<BorrowItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [internalFilter, setInternalFilter] = useState<'daily' | 'weekly' | 'monthly' | 'all'>(typeof filter === 'string' ? (filter as 'daily' | 'weekly' | 'monthly' | 'all') : 'monthly');
+const activeFilter = typeof filter === 'string' ? (filter as 'daily' | 'weekly' | 'monthly' | 'all') : internalFilter;
 
   // Fetch borrows from Supabase
-  const fetchBorrows = async () => {
+  const fetchBorrows = async (reset = false) => {
+    setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('borrows')
-        .select('*')
-        .order('created_at', { ascending: false });
-
+        .select('id,borrower_name,created_at,total_given,amount_paid,balance,transaction_id')
+        .order('created_at', { ascending: false })
+        .limit(PAGE_SIZE)
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      if (activeFilter === 'daily') {
+        query = query.gte('created_at', startOfDay.toISOString());
+      } else if (activeFilter === 'weekly') {
+        query = query.gte('created_at', startOfWeek.toISOString());
+      } else if (activeFilter === 'monthly') {
+        query = query.gte('created_at', startOfMonth.toISOString());
+      }
+      const { data, error } = await query;
       if (error) throw error;
-      setItems(data || []);
+      if (reset) {
+        setItems(data || []);
+      } else {
+        setItems(prev => [...prev, ...(data || [])]);
+      }
+      setHasMore((data || []).length === PAGE_SIZE);
     } catch (error) {
       toast({
         title: "Error",
@@ -51,8 +78,38 @@ const BorrowManagement = ({ language, filter = 'monthly' }: BorrowManagementProp
   };
 
   useEffect(() => {
-    fetchBorrows();
+    setPage(1);
+    fetchBorrows(true);
+    const handleDataUpdated = () => {
+      setPage(1);
+      fetchBorrows(true);
+      toast({ title: 'Data Updated', description: 'Borrow data refreshed.', variant: 'default' });
+      console.log('[BorrowManagement] Data updated event received, borrows refreshed.');
+    };
+    window.addEventListener('data-updated', handleDataUpdated);
+    return () => {
+      window.removeEventListener('data-updated', handleDataUpdated);
+    };
+  }, [activeFilter]);
+
+  useEffect(() => {
+    const handleDataUpdated = () => {
+      fetchBorrows(); // Refresh the data
+      toast({
+        title: "Success",
+        description: "Data updated successfully!",
+        variant: "default"
+      });
+    };
+    window.addEventListener('data-updated', handleDataUpdated);
+    return () => window.removeEventListener('data-updated', handleDataUpdated);
   }, []);
+
+  const loadMore = () => {
+    setPage(p => p + 1);
+    fetchBorrows();
+  };
+
   const [newItem, setNewItem] = useState({
     name: "",
     totalGiven: "",
@@ -69,23 +126,49 @@ const BorrowManagement = ({ language, filter = 'monthly' }: BorrowManagementProp
     amountPaid: ""
   });
 
-  const isEnglish = language === "english";
+  // Helper to detect Malayalam text
+  const isMalayalam = (text: string) => /[\u0D00-\u0D7F]/.test(text);
 
-  const addItem = async () => {
-    if (newItem.name && newItem.totalGiven && !isSubmitting) {
+  // Refactor addItem to accept parameters
+  const addItem = async (
+    nameParam?: string,
+    totalGivenParam?: string,
+    amountPaidParam?: string
+  ) => {
+    const name = nameParam ?? newItem.name;
+    let totalGivenStr = totalGivenParam ?? newItem.totalGiven;
+    let amountPaidStr = amountPaidParam ?? newItem.amountPaid;
+    // Convert Malayalam/English number words to digits
+    const parsedTotal = universalNumberParser(totalGivenStr);
+    if (parsedTotal !== null) totalGivenStr = parsedTotal.toString();
+    const parsedPaid = universalNumberParser(amountPaidStr);
+    if (parsedPaid !== null) amountPaidStr = parsedPaid.toString();
+    console.log('[BorrowManagement] addItem called with:', { name, totalGivenStr, amountPaidStr });
+    // Validation
+    if (!name.trim()) {
+      toast({ title: "Validation Error", description: "Borrower name cannot be empty.", variant: "destructive" });
+      return;
+    }
+    if (!totalGivenStr || isNaN(Number(totalGivenStr)) || Number(totalGivenStr) <= 0) {
+      toast({ title: "Validation Error", description: "Amount given must be a positive number.", variant: "destructive" });
+      return;
+    }
+    if (amountPaidStr && (isNaN(Number(amountPaidStr)) || Number(amountPaidStr) < 0)) {
+      toast({ title: "Validation Error", description: "Amount paid must be zero or a positive number.", variant: "destructive" });
+      return;
+    }
+    if (!isSubmitting) {
       setIsSubmitting(true);
-      const totalGiven = parseFloat(newItem.totalGiven) || 0;
-      const amountPaid = parseFloat(newItem.amountPaid) || 0;
+      const totalGiven = parseFloat(totalGivenStr) || 0;
+      const amountPaid = parseFloat(amountPaidStr) || 0;
       const balance = totalGiven - amountPaid;
-
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
+        if (!user) throw new Error('User not authenticated');
         const { data, error } = await supabase
           .from('borrows')
           .insert({
-            borrower_name: newItem.name,
+            borrower_name: name,
             total_given: totalGiven,
             amount_paid: amountPaid,
             balance: balance,
@@ -93,26 +176,45 @@ const BorrowManagement = ({ language, filter = 'monthly' }: BorrowManagementProp
           })
           .select()
           .single();
-
         if (error) throw error;
-
         setItems([...items, data]);
         setNewItem({ name: "", totalGiven: "", amountPaid: "" });
         toast({
-          title: "Success",
-          description: "Borrow record added successfully",
+          title: "Saved!",
+          description: `Borrower: ${name}, Amount: ₹${totalGiven}, Paid: ₹${amountPaid}`,
+          variant: "default"
         });
-      } catch (error) {
+        await fetchBorrows();
+        window.dispatchEvent(new CustomEvent('data-updated'));
+        window.dispatchEvent(new CustomEvent('add-borrow-result', { detail: { success: true } }));
+        console.log('[BorrowManagement] data-updated event fired after DB write.');
+      } catch (error: any) {
+        console.error('[BorrowManagement] Error adding borrow record:', error);
         toast({
           title: "Error",
-          description: "Failed to add borrow record",
+          description: error.message || "Failed to add borrow record",
           variant: "destructive",
         });
+        window.dispatchEvent(new CustomEvent('add-borrow-result', { detail: { success: false, error: error.message } }));
       } finally {
         setIsSubmitting(false);
       }
     }
   };
+
+  useEffect(() => {
+    const handleAddBorrow = async (e: any) => {
+      const { name, totalGiven, amountPaid } = e.detail || {};
+      console.log('[VoiceAssistant] Received add-borrow event:', { name, totalGiven, amountPaid });
+      if (name && totalGiven) {
+        addItem(name, totalGiven, amountPaid || '');
+      }
+    };
+    window.addEventListener('add-borrow', handleAddBorrow);
+    return () => window.removeEventListener('add-borrow', handleAddBorrow);
+  }, []);
+
+  const isEnglish = language === "english";
 
   const deleteItem = async (id: string) => {
     try {
@@ -199,7 +301,7 @@ const BorrowManagement = ({ language, filter = 'monthly' }: BorrowManagementProp
     startOfWeek.setDate(now.getDate() - now.getDay());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    switch (filter) {
+    switch (activeFilter) {
       case 'daily':
         return items.filter(item => new Date(item.created_at) >= startOfDay);
       case 'weekly':
@@ -213,6 +315,7 @@ const BorrowManagement = ({ language, filter = 'monthly' }: BorrowManagementProp
     }
   };
 
+  const memoizedItems = useMemo(() => items, [items]);
   const filteredItems = filterBorrows();
   const totalBorrowers = filteredItems.length;
   const totalOutstanding = filteredItems.reduce((sum, item) => sum + item.balance, 0);
@@ -321,7 +424,7 @@ const BorrowManagement = ({ language, filter = 'monthly' }: BorrowManagementProp
                     {filteredItems.map((item) => (
                       <tr key={item.id} className="border-b hover:bg-muted/50">
                         <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>{item.transaction_id}</td>
-                        <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
+                        <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''} ${isMalayalam(item.borrower_name) ? 'malayalam-text' : ''}`}>
                           {editingId === item.id ? (
                             <Input
                               value={editItem.name}
@@ -336,9 +439,14 @@ const BorrowManagement = ({ language, filter = 'monthly' }: BorrowManagementProp
                         <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
                           {editingId === item.id ? (
                             <Input
-                              type="number"
+                              type="text"
                               value={editItem.totalGiven}
-                              onChange={(e) => setEditItem({...editItem, totalGiven: e.target.value})}
+                              onChange={e => {
+                                let val = e.target.value;
+                                const parsed = universalNumberParser(val);
+                                if (parsed !== null) val = parsed.toString();
+                                setEditItem({...editItem, totalGiven: val});
+                              }}
                               className="h-8 text-sm"
                             />
                           ) : (
@@ -348,9 +456,14 @@ const BorrowManagement = ({ language, filter = 'monthly' }: BorrowManagementProp
                         <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
                           {editingId === item.id ? (
                             <Input
-                              type="number"
+                              type="text"
                               value={editItem.amountPaid}
-                              onChange={(e) => setEditItem({...editItem, amountPaid: e.target.value})}
+                              onChange={e => {
+                                let val = e.target.value;
+                                const parsed = universalNumberParser(val);
+                                if (parsed !== null) val = parsed.toString();
+                                setEditItem({...editItem, amountPaid: val});
+                              }}
                               className="h-8 text-sm"
                             />
                           ) : (
@@ -426,6 +539,13 @@ const BorrowManagement = ({ language, filter = 'monthly' }: BorrowManagementProp
           </CardContent>
         </Card>
 
+        {/* Load More Button */}
+        {hasMore && !loading && (
+          <div className="flex justify-center mt-4">
+            <Button onClick={loadMore} size="sm">{isEnglish ? "Load More" : "കൂടുതൽ കാണിക്കുക"}</Button>
+          </div>
+        )}
+
         {/* Add Borrow Form */}
         <Card id="add-form">
           <CardHeader>
@@ -454,9 +574,14 @@ const BorrowManagement = ({ language, filter = 'monthly' }: BorrowManagementProp
                 </Label>
                 <Input
                   id="total-given"
-                  type="number"
+                  type="text"
                   value={newItem.totalGiven}
-                  onChange={(e) => setNewItem({ ...newItem, totalGiven: e.target.value })}
+                  onChange={e => {
+                    let val = e.target.value;
+                    const parsed = universalNumberParser(val);
+                    if (parsed !== null) val = parsed.toString();
+                    setNewItem({ ...newItem, totalGiven: val });
+                  }}
                   placeholder="₹0"
                   className="h-11"
                 />
@@ -468,16 +593,21 @@ const BorrowManagement = ({ language, filter = 'monthly' }: BorrowManagementProp
                 </Label>
                 <Input
                   id="amount-paid"
-                  type="number"
+                  type="text"
                   value={newItem.amountPaid}
-                  onChange={(e) => setNewItem({ ...newItem, amountPaid: e.target.value })}
+                  onChange={e => {
+                    let val = e.target.value;
+                    const parsed = universalNumberParser(val);
+                    if (parsed !== null) val = parsed.toString();
+                    setNewItem({ ...newItem, amountPaid: val });
+                  }}
                   placeholder="₹0"
                   className="h-11"
                 />
               </div>
             </div>
 
-            <Button onClick={addItem} disabled={isSubmitting} className="w-full h-11 text-base">
+            <Button onClick={() => addItem()} disabled={isSubmitting} className="w-full h-11 text-base">
               <Plus className="h-5 w-5 mr-2" />
               {isSubmitting ? "Adding..." : (isEnglish ? "Add Borrow Record" : "കടം രേഖ ചേർക്കുക")}
             </Button>
