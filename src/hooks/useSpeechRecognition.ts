@@ -11,6 +11,8 @@ export const useSpeechRecognition = ({ language, onResult, onError }: UseSpeechR
   const [transcript, setTranscript] = useState("");
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const stopRequested = useRef(false);
+  const minListenDuration = 2000; // 2 seconds
+  const listenStartTime = useRef<number | null>(null);
 
   const isEnglish = language === "english";
 
@@ -28,6 +30,7 @@ export const useSpeechRecognition = ({ language, onResult, onError }: UseSpeechR
 
         (recognitionRef.current as any).onstart = () => {
           console.log('[SpeechRecognition] Started');
+          listenStartTime.current = Date.now();
         };
         recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
           const current = event.resultIndex;
@@ -39,12 +42,48 @@ export const useSpeechRecognition = ({ language, onResult, onError }: UseSpeechR
           }
         };
         recognitionRef.current.onend = () => {
+          const now = Date.now();
+          if (listenStartTime.current && now - listenStartTime.current < minListenDuration) {
+            // Too soon, restart listening
+            console.log('[SpeechRecognition] Ended too soon, restarting...');
+            if (!stopRequested.current) {
+              setTimeout(() => {
+                if (recognitionRef.current && !isListening) {
+                  try {
+                    recognitionRef.current.start();
+                    setIsListening(true);
+                    listenStartTime.current = Date.now();
+                    console.log('[SpeechRecognition] Restarted after too-soon end');
+                  } catch (e) {
+                    console.error('[SpeechRecognition] Failed to restart after too-soon end:', e);
+                  }
+                }
+              }, 500);
+            }
+            return;
+          }
           setIsListening(false);
           console.log('[SpeechRecognition] Ended');
+          // Auto-restart if not explicitly stopped
+          if (!stopRequested.current) {
+            setTimeout(() => {
+              if (recognitionRef.current && !isListening) {
+                try {
+                  recognitionRef.current.start();
+                  setIsListening(true);
+                  listenStartTime.current = Date.now();
+                  console.log('[SpeechRecognition] Restarted after end');
+                } catch (e) {
+                  console.error('[SpeechRecognition] Failed to restart after end:', e);
+                }
+              }
+            }, 500);
+          }
         };
         recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
           console.error('[SpeechRecognition] Error:', event.error);
           setIsListening(false);
+          stopRequested.current = true; // Prevent auto-restart after error
           const errorMessage = isEnglish 
             ? "Sorry, I couldn't understand. Please try again." 
             : "ക്ഷമിക്കണം, എനിക്ക് മനസ്സിലായില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.";
@@ -96,6 +135,7 @@ export const useSpeechRecognition = ({ language, onResult, onError }: UseSpeechR
       setIsListening(true);
       stopRequested.current = false;
       recognitionRef.current.start();
+      listenStartTime.current = Date.now();
       console.log('[SpeechRecognition] startListening called');
     } else {
       const errorMessage = isEnglish 

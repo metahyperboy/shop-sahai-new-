@@ -9,6 +9,7 @@ import { VoiceCommandService } from "@/services/voiceCommandService";
 import React, { useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { universalNumberParser } from "@/services/voiceCommandService";
+import { useToast } from "@/hooks/use-toast";
 
 type BorrowConversationStep = 'idle' | 'askName' | 'askAmount' | 'askPaid' | 'confirm' | 'done';
 interface BorrowConversationState {
@@ -64,6 +65,7 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
   const [purchaseConfirmEdit, setPurchaseConfirmEdit] = useState<PurchaseConversationState | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const cooldownRef = useRef<NodeJS.Timeout | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if ('speechSynthesis' in window) {
@@ -129,7 +131,8 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
   const handleSpeechError = (error: string) => {
     setResponse(error);
     setMicError(error);
-    speakMemo(error);
+    setIsSpeaking(false);
+    // speakMemo(error); // Already removed or not needed
   };
 
   // Helper to reset borrow conversation
@@ -184,7 +187,6 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
         setBorrowState(s => ({ ...s, step: 'done' }));
         setBorrowConfirmEdit(null);
         setResponse(isEnglish ? 'Record added successfully!' : 'റെക്കോർഡ് വിജയകരമായി ചേർത്തു!');
-        speakMemo(isEnglish ? 'Record added successfully!' : 'റെക്കോർഡ് വിജയകരമായി ചേർത്തു!');
       } else if (/no|change|back|വേണ്ട|മാറ്റം|തിരിച്ച്/i.test(transcript)) {
         setBorrowState(s => ({ ...s, step: 'askAmount' }));
         setBorrowConfirmEdit(null);
@@ -259,7 +261,6 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
         setPurchaseState(s => ({ ...s, step: 'done' }));
         setPurchaseConfirmEdit(null);
         setResponse(isEnglish ? 'Purchase record added successfully!' : 'വാങ്ങൽ രേഖ വിജയകരമായി ചേർത്തു!');
-        speakMemo(isEnglish ? 'Purchase record added successfully!' : 'വാങ്ങൽ രേഖ വിജയകരമായി ചേർത്തു!');
       } else if (/no|change|back|വേണ്ട|മാറ്റം|തിരിച്ച്/i.test(transcript)) {
         setPurchaseState(s => ({ ...s, step: 'askAmount' }));
         setPurchaseConfirmEdit(null);
@@ -331,6 +332,7 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
 
   const handleVoiceClick = () => {
     setMicError("");
+    setResponse("");
     if (!isSupported) {
       setMicError(isEnglish ? "Your browser does not support voice recognition." : "നിങ്ങളുടെ ബ്രൗസർ വോയ്സ് റെക്കഗ്നിഷൻ പിന്തുണയ്ക്കുന്നില്ല.");
       return;
@@ -380,17 +382,25 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
       if (borrowState.step === 'done') return; // Already handled
       if (e.detail?.success) {
         setResponse(isEnglish ? 'Record added successfully!' : '\u0d31\u0d46\u0d15\u0d4d\u0d15\u0d4b\u0d7c\u0d21\u0d4d \u0d35\u0d3f\u0d1c\u0d2f\u0d15\u0d30\u0d2e\u0d3e\u0d2f\u0d3f \u0d1a\u0d47\u0d7c\u0d24\u0d4d\u0d24\u0d41!');
-        speakMemo(isEnglish ? 'Record added successfully!' : '\u0d31\u0d46\u0d15\u0d4d\u0d15\u0d4b\u0d7c\u0d21\u0d4d \u0d35\u0d3f\u0d1c\u0d2f\u0d15\u0d30\u0d2e\u0d3e\u0d2f\u0d3f \u0d1a\u0d47\u0d7c\u0d24\u0d4d\u0d24\u0d41!');
+        toast({
+          title: isEnglish ? 'Success' : 'വിജയം',
+          description: isEnglish ? 'Borrow record saved and table updated.' : 'കടം രേഖ സംരക്ഷിച്ചു, പട്ടിക പുതുക്കി.',
+          variant: 'default',
+        });
         setBorrowState(s => ({ ...s, step: 'done' }));
         setBorrowConfirmEdit(null);
       } else {
-        setResponse(isEnglish ? `Error: ${e.detail?.error || 'Failed to add record.'}` : `\u0d24\u0d3f\u0d30\u0d3f\u0d1a\u0d4d\u0d1a\u0d4d: ${e.detail?.error || '\u0d31\u0d46\u0d15\u0d4d\u0d15\u0d4b\u0d7c\u0d21\u0d4d \u0d1a\u0d47\u0d7c\u0d24\u0d3e\u0d7b'} `);
-        speakMemo(isEnglish ? `Error: ${e.detail?.error || 'Failed to add record.'}` : `\u0d24\u0d3f\u0d30\u0d3f\u0d1a\u0d4d\u0d1a\u0d4d: ${e.detail?.error || '\u0d31\u0d46\u0d15\u0d4d\u0d15\u0d4b\u0d7c\u0d21\u0d4d \u0d1a\u0d47\u0d7c\u0d24\u0d3e\u0d7b'}`);
+        setResponse(isEnglish ? `Error: ${e.detail?.error || 'Failed to add record.'}` : `\u0d24\u0d3f\u0d30\u0d3f\u0d1a\u0d4d\u0d1a\u0d4d: ${e.detail?.error || '\u0d31\u0d46\u0d15\u0d4d\u0d15\u0d4b\u0d7c\u0d21\u0d4d \u0d1a\u0d47\u0d7c\u0d24\u0d3e\u0d7b'}`);
+        toast({
+          title: isEnglish ? 'Error' : 'പിശക്',
+          description: e.detail?.error || (isEnglish ? 'Failed to add record.' : 'റെക്കോർഡ് ചേർക്കാൻ കഴിഞ്ഞില്ല.'),
+          variant: 'destructive',
+        });
       }
     };
     window.addEventListener('add-borrow-result', handleAddBorrowResult);
     return () => window.removeEventListener('add-borrow-result', handleAddBorrowResult);
-  }, [isEnglish, borrowState.step, speakMemo]);
+  }, [isEnglish, borrowState.step, toast]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -434,7 +444,7 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
 
           {/* Status */}
           <div className="text-center">
-            {isSpeaking && (
+            {isSpeaking && !micError && (
               <p className="text-sm text-yellow-700 animate-pulse">
                 {isEnglish ? "Speaking..." : "സംസാരിക്കുന്നു..."}
               </p>
@@ -495,7 +505,6 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
                     setBorrowState(s => ({ ...s, step: 'done' }));
                     setBorrowConfirmEdit(null);
                     setResponse(isEnglish ? 'Record added successfully!' : 'റെക്കോർഡ് വിജയകരമായി ചേർത്തു!');
-                    speakMemo(isEnglish ? 'Record added successfully!' : 'റെക്കോർഡ് വിജയകരമായി ചേർത്തു!');
                   }}>{isEnglish ? 'Save' : 'സേവ് ചെയ്യുക'}</Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setBorrowState(s => ({ ...s, step: 'askAmount' }));
@@ -539,7 +548,6 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
                     setPurchaseState(s => ({ ...s, step: 'done' }));
                     setPurchaseConfirmEdit(null);
                     setResponse(isEnglish ? 'Purchase record added successfully!' : 'വാങ്ങൽ രേഖ വിജയകരമായി ചേർത്തു!');
-                    speakMemo(isEnglish ? 'Purchase record added successfully!' : 'വാങ്ങൽ രേഖ വിജയകരമായി ചേർത്തു!');
                   }}>{isEnglish ? 'Save' : 'സേവ് ചെയ്യുക'}</Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setPurchaseState(s => ({ ...s, step: 'askAmount' }));
