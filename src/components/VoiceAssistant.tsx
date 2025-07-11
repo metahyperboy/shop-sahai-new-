@@ -65,6 +65,8 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
   const [purchaseConfirmEdit, setPurchaseConfirmEdit] = useState<PurchaseConversationState | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const cooldownRef = useRef<NodeJS.Timeout | null>(null);
+  const micCooldownRef = useRef<NodeJS.Timeout | null>(null);
+  const [micCooldown, setMicCooldown] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -93,7 +95,9 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
   }, [language, selectedVoiceURI]);
 
   const isEnglish = language === "english";
-  const { speak: speakRaw } = useTextToSpeech({ language, voiceURI: selectedVoiceURI });
+  // Always use Malayalam for voice assistant language
+  const voiceLang = 'malayalam';
+  const { speak: speakRaw } = useTextToSpeech({ language: voiceLang, voiceURI: selectedVoiceURI });
   // Wrap speak to set isSpeaking
   const speak = useCallback((text: string, onDone?: () => void) => {
     setIsSpeaking(true);
@@ -128,11 +132,14 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
     }
   };
 
+  // Only one handleSpeechError function
   const handleSpeechError = (error: string) => {
     setResponse(error);
     setMicError(error);
     setIsSpeaking(false);
-    // speakMemo(error); // Already removed or not needed
+    setMicCooldown(true);
+    if (micCooldownRef.current) clearTimeout(micCooldownRef.current);
+    micCooldownRef.current = setTimeout(() => setMicCooldown(false), 1000);
   };
 
   // Helper to reset borrow conversation
@@ -324,35 +331,18 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
 
   // Use debounced handler in useSpeechRecognition
   const { isListening, transcript, startListening, stopListening, isSupported } = useSpeechRecognition({
-    language,
+    language: voiceLang,
     onResult: debouncedHandleTranscript,
     onError: handleSpeechError
   });
   const [micError, setMicError] = useState("");
 
-  const handleVoiceClick = () => {
-    setMicError("");
-    setResponse("");
-    if (!isSupported) {
-      setMicError(isEnglish ? "Your browser does not support voice recognition." : "നിങ്ങളുടെ ബ്രൗസർ വോയ്സ് റെക്കഗ്നിഷൻ പിന്തുണയ്ക്കുന്നില്ല.");
-      return;
-    }
-    if (isSpeaking) {
-      setMicError(isEnglish ? "Please wait for the assistant to finish speaking." : "വോയ്സ് അസിസ്റ്റന്റ് സംസാരിക്കുന്നത് കഴിയുന്നത് വരെ കാത്തിരിക്കുക.");
-      return;
-    }
-    if (isListening) {
-      stopListening();
-    } else {
-      setResponse("");
-      startListening();
-    }
-  };
-
-  // Show error if not supported on mount
-  React.useEffect(() => {
-    if (!isSupported) {
-      setMicError(isEnglish ? "Your browser does not support voice recognition." : "നിങ്ങളുടെ ബ്രൗസർ വോയ്സ് റെക്കഗ്നിഷൻ പിന്തുണയ്ക്കുന്നില്ല.");
+  // Detect unsupported browsers (iOS/Safari)
+  useEffect(() => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    if (!isSupported || isIOS || isSafari) {
+      setMicError(isEnglish ? "Voice assistant is not supported on this browser. Please use Chrome on Android or desktop." : "ഈ ബ്രൗസറിൽ വോയ്സ് അസിസ്റ്റന്റ് പിന്തുണയ്ക്കുന്നില്ല. Android Chrome അല്ലെങ്കിൽ ഡെസ്ക്ടോപ്പ് ഉപയോഗിക്കുക.");
     }
   }, [isSupported, isEnglish]);
 
@@ -402,6 +392,27 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
     return () => window.removeEventListener('add-borrow-result', handleAddBorrowResult);
   }, [isEnglish, borrowState.step, toast]);
 
+  // Place handleVoiceClick above its usage
+  const handleVoiceClick = () => {
+    if (micCooldown) return;
+    setMicError("");
+    setResponse("");
+    if (!isSupported) {
+      setMicError(isEnglish ? "Your browser does not support voice recognition." : "നിങ്ങളുടെ ബ്രൗസർ വോയ്സ് റെക്കഗ്നിഷൻ പിന്തുണയ്ക്കുന്നില്ല.");
+      return;
+    }
+    if (isSpeaking) {
+      setMicError(isEnglish ? "Please wait for the assistant to finish speaking." : "വോയ്സ് അസിസ്റ്റന്റ് സംസാരിക്കുന്നത് കഴിയുന്നത് വരെ കാത്തിരിക്കുക.");
+      return;
+    }
+    if (isListening) {
+      stopListening();
+    } else {
+      setResponse("");
+      startListening();
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-md">
@@ -414,7 +425,7 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
           </Button>
         </CardHeader>
         {/* Malayalam and English voice selector */}
-        {((language === "malayalam" && mlVoices.length > 1) || (language === "english" && enVoices.length > 1)) && (
+        {((mlVoices.length > 1) && (
           <div className="mb-2 text-center">
             <label className="text-xs mr-2">{isEnglish ? "Select Voice:" : "വോയ്സ് തിരഞ്ഞെടുക്കുക:"}</label>
             <select
@@ -422,21 +433,21 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
               value={selectedVoiceURI}
               onChange={e => setSelectedVoiceURI(e.target.value)}
             >
-              {(language === "malayalam" ? mlVoices : enVoices).map(v => (
+              {mlVoices.map(v => (
                 <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>
               ))}
             </select>
           </div>
-        )}
+        ))}
         <CardContent className="space-y-4">
           {/* Voice Button */}
           <div className="flex justify-center">
             <Button
-              className={`rounded-full w-20 h-20 ${
+              className={`rounded-full w-24 h-24 sm:w-20 sm:h-20 p-4 ${
                 isListening ? "bg-red-500 hover:bg-red-600" : isSpeaking ? "bg-yellow-400 hover:bg-yellow-500" : "bg-primary hover:bg-primary/90"
               }`}
               onClick={handleVoiceClick}
-              disabled={isProcessing || !isSupported || isSpeaking}
+              disabled={isProcessing || !isSupported || isSpeaking || micCooldown}
             >
               {isListening ? <MicOff className="h-8 w-8" /> : isSpeaking ? <span className="animate-spin">🔊</span> : <Mic className="h-8 w-8" />}
             </Button>

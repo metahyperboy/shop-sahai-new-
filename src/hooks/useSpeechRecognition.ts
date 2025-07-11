@@ -39,6 +39,8 @@ export const useSpeechRecognition = ({ language, onResult, onError }: UseSpeechR
           console.log('[SpeechRecognition] Result:', transcript);
           if (event.results[current].isFinal) {
             onResult(transcript);
+            stopRequested.current = true; // Prevent auto-restart after final result
+            setTranscript(""); // Clear transcript after processing
           }
         };
         recognitionRef.current.onend = () => {
@@ -103,21 +105,8 @@ export const useSpeechRecognition = ({ language, onResult, onError }: UseSpeechR
         };
         (recognitionRef.current as any).onabort = () => {
           setIsListening(false);
-          console.warn('[SpeechRecognition] Aborted');
-          // Retry if not explicitly stopped
-          if (!stopRequested.current) {
-            setTimeout(() => {
-              if (recognitionRef.current && !isListening) {
-                try {
-                  recognitionRef.current.start();
-                  setIsListening(true);
-                  console.log('[SpeechRecognition] Restarted after abort');
-                } catch (e) {
-                  console.error('[SpeechRecognition] Failed to restart:', e);
-                }
-              }
-            }, 500);
-          }
+          stopRequested.current = true; // Prevent auto-restart after abort
+          console.log('[SpeechRecognition] Aborted');
         };
       }
     }

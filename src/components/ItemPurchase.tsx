@@ -7,6 +7,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { universalNumberParser } from "@/services/voiceCommandService";
+import { formatDateDMY } from "@/lib/utils";
 
 interface ItemPurchaseProps {
   language: string;
@@ -416,7 +417,7 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
                             item.supplier_name
                           )}
                         </td>
-                        <td className={`p-3 text-sm text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>{new Date(item.created_at).toLocaleDateString()}</td>
+                        <td className={`p-3 text-sm text-muted-foreground ${!isEnglish ? 'text-right' : ''}`}>{formatDateDMY(item.created_at)}</td>
                         <td className={`p-3 text-sm font-medium ${!isEnglish ? 'text-right' : ''}`}>
                           {editingId === item.id ? (
                             <Input

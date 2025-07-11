@@ -15,7 +15,7 @@ const Index = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showVoiceAssistant, setShowVoiceAssistant] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [language, setLanguage] = useState("malayalam");
+  const [language, setLanguage] = useState("english");
   const [userName, setUserName] = useState("User");
   const [transactions, setTransactions] = useState([]);
   const [filter, setFilter] = useState<'daily' | 'weekly' | 'monthly' | 'all'>('all');
@@ -59,6 +59,8 @@ const Index = () => {
   };
 
   useEffect(() => {
+    const savedLang = localStorage.getItem('shop-sahai-language');
+    if (savedLang) setLanguage(savedLang);
     loadProfile();
     fetchTransactions();
   }, []);
@@ -148,6 +150,11 @@ const Index = () => {
     },
   ];
 
+  const handleLanguageChange = (lang: string) => {
+    setLanguage(lang);
+    localStorage.setItem('shop-sahai-language', lang);
+  };
+
   const renderContent = () => {
     if (showSettings) {
       return (
@@ -156,7 +163,7 @@ const Index = () => {
           isDarkMode={isDarkMode}
           setIsDarkMode={setIsDarkMode}
           language={language}
-          setLanguage={setLanguage}
+          setLanguage={handleLanguageChange}
           userName={userName}
           setUserName={setUserName}
         />

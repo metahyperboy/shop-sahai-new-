@@ -8,6 +8,7 @@ import { Plus, Trash2, TrendingUp, TrendingDown, Edit, Check, X } from "lucide-r
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateDMY } from "@/lib/utils";
 
 interface IncomeExpenseProps {
   language: string;
@@ -32,6 +33,8 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const { toast } = useToast();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<Partial<Transaction>>({});
 
   // Fetch transactions from Supabase
   const fetchTransactions = async (reset = false) => {
@@ -160,12 +163,51 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
         title: "Success",
         description: "Transaction deleted successfully",
       });
+      setPage(1);
+      await fetchTransactions(true);
+      window.dispatchEvent(new CustomEvent('data-updated'));
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to delete transaction",
         variant: "destructive",
       });
+    }
+  };
+
+  const startEdit = (transaction: Transaction) => {
+    setEditingId(transaction.id);
+    setEditData({ ...transaction, amount: String(transaction.amount) });
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditData({});
+  };
+  const saveEdit = async (id: string) => {
+    if (!editData.amount || !editData.category) return;
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .update({
+          amount: parseFloat(editData.amount as string),
+          category: editData.category,
+          description: editData.description || null,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      toast({ title: 'Success', description: 'Transaction updated successfully' });
+      setEditingId(null);
+      setEditData({});
+      setPage(1);
+      await fetchTransactions(true);
+      window.dispatchEvent(new CustomEvent('data-updated'));
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to update transaction', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -367,23 +409,54 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
                 <div key={transaction.id} className="p-3 border rounded-lg">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center space-x-2">
-                      <div className={`w-2 h-2 rounded-full ${
-                        transaction.type === "income" ? "bg-green-500" : "bg-red-500"
-                      }`} />
+                      <div className={`w-2 h-2 rounded-full ${transaction.type === "income" ? "bg-green-500" : "bg-red-500"}`} />
                       <div>
-                        <p className="font-medium">{transaction.category}</p>
-                        {transaction.description && (
-                          <p className="text-sm text-muted-foreground">{transaction.description}</p>
+                        {editingId === transaction.id ? (
+                          <>
+                            <Select value={editData.category as string} onValueChange={v => setEditData(ed => ({ ...ed, category: v }))}>
+                              <SelectTrigger><SelectValue placeholder={isEnglish ? "Select category" : "വിഭാഗം തിരഞ്ഞെടുക്കുക"} /></SelectTrigger>
+                              <SelectContent>
+                                {categories[transaction.type].map((cat) => (
+                                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              type="number"
+                              value={editData.amount as string}
+                              onChange={e => setEditData(ed => ({ ...ed, amount: e.target.value }))}
+                              className="mt-1"
+                            />
+                            <Input
+                              value={editData.description as string || ''}
+                              onChange={e => setEditData(ed => ({ ...ed, description: e.target.value }))}
+                              className="mt-1"
+                              placeholder={isEnglish ? "Description (Optional)" : "വിവരണം (ഓപ്ഷണൽ)"}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-medium">{transaction.category}</p>
+                            {transaction.description && (
+                              <p className="text-sm text-muted-foreground">{transaction.description}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground">{formatDateDMY(transaction.created_at)}</p>
+                          </>
                         )}
-                        <p className="text-xs text-muted-foreground">{new Date(transaction.created_at).toLocaleDateString()}</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <p className={`font-bold ${
-                        transaction.type === "income" ? "text-green-600" : "text-red-600"
-                      }`}>
+                      <p className={`font-bold ${transaction.type === "income" ? "text-green-600" : "text-red-600"}`}>
                         {transaction.type === "income" ? "+" : "-"}₹{transaction.amount}
                       </p>
+                      {editingId === transaction.id ? (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => saveEdit(transaction.id)} disabled={isSubmitting} className="text-green-600 hover:text-green-700"><Check className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" onClick={cancelEdit} className="text-gray-600 hover:text-gray-700"><X className="h-4 w-4" /></Button>
+                        </>
+                      ) : (
+                        <Button variant="ghost" size="sm" onClick={() => startEdit(transaction)} className="text-blue-600 hover:text-blue-700"><Edit className="h-4 w-4" /></Button>
+                      )}
                       <Button 
                         variant="ghost" 
                         size="sm" 
