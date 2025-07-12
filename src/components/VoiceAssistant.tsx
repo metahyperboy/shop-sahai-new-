@@ -10,6 +10,7 @@ import React, { useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { universalNumberParser } from "@/services/voiceCommandService";
 import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
 
 type BorrowConversationStep = 'idle' | 'askName' | 'askAmount' | 'askPaid' | 'confirm' | 'done';
 interface BorrowConversationState {
@@ -493,16 +494,16 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
               <p className="text-sm font-semibold mb-2">{isEnglish ? 'Confirm Borrow Details:' : 'കടം വിശദാംശങ്ങൾ സ്ഥിരീകരിക്കുക:'}</p>
               <div className="space-y-2">
                 <div>
-                  <label className="text-xs">{isEnglish ? 'Name:' : 'പേര്:'}</label>
-                  <Input className="w-full" value={borrowConfirmEdit.name} onChange={e => setBorrowConfirmEdit(s => s && ({ ...s, name: e.target.value }))} />
+                  <Label htmlFor="borrower-name" className="text-xs">Name:</Label>
+                  <Input id="borrower-name" className="w-full" value={borrowConfirmEdit.name} onChange={e => setBorrowConfirmEdit(s => s && ({ ...s, name: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="text-xs">{isEnglish ? 'Amount:' : 'തുക:'}</label>
-                  <Input className="w-full" value={borrowConfirmEdit.amount} onChange={e => setBorrowConfirmEdit(s => s && ({ ...s, amount: e.target.value }))} />
+                  <Label htmlFor="borrow-amount" className="text-xs">Amount:</Label>
+                  <Input id="borrow-amount" className="w-full" value={borrowConfirmEdit.amount} onChange={e => setBorrowConfirmEdit(s => s && ({ ...s, amount: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="text-xs">{isEnglish ? 'Paid Back:' : 'തിരികെ നൽകിയ തുക:'}</label>
-                  <Input className="w-full" value={borrowConfirmEdit.paid} onChange={e => setBorrowConfirmEdit(s => s && ({ ...s, paid: e.target.value }))} />
+                  <Label htmlFor="borrow-paid" className="text-xs">Paid Back:</Label>
+                  <Input id="borrow-paid" className="w-full" value={borrowConfirmEdit.paid} onChange={e => setBorrowConfirmEdit(s => s && ({ ...s, paid: e.target.value }))} />
                 </div>
                 {debugInfo && <div className="text-xs text-muted-foreground mt-1">Debug: {debugInfo}</div>}
                 <div className="flex gap-2 mt-2">
@@ -530,16 +531,16 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
               <p className="text-sm font-semibold mb-2">{isEnglish ? 'Confirm Purchase Details:' : 'വാങ്ങൽ വിശദാംശങ്ങൾ സ്ഥിരീകരിക്കുക:'}</p>
               <div className="space-y-2">
                 <div>
-                  <label className="text-xs">{isEnglish ? 'Supplier:' : 'സപ്ലയർ:'}</label>
-                  <Input className="w-full" value={purchaseConfirmEdit.supplier} onChange={e => setPurchaseConfirmEdit(s => s && ({ ...s, supplier: e.target.value }))} />
+                  <Label htmlFor="supplier-name" className="text-xs">Supplier:</Label>
+                  <Input id="supplier-name" className="w-full" value={purchaseConfirmEdit.supplier} onChange={e => setPurchaseConfirmEdit(s => s && ({ ...s, supplier: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="text-xs">{isEnglish ? 'Amount:' : 'തുക:'}</label>
-                  <Input className="w-full" value={purchaseConfirmEdit.amount} onChange={e => setPurchaseConfirmEdit(s => s && ({ ...s, amount: e.target.value }))} />
+                  <Label htmlFor="purchase-amount" className="text-xs">Amount:</Label>
+                  <Input id="purchase-amount" className="w-full" value={purchaseConfirmEdit.amount} onChange={e => setPurchaseConfirmEdit(s => s && ({ ...s, amount: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="text-xs">{isEnglish ? 'Paid:' : 'നൽകിയ തുക:'}</label>
-                  <Input className="w-full" value={purchaseConfirmEdit.paid} onChange={e => setPurchaseConfirmEdit(s => s && ({ ...s, paid: e.target.value }))} />
+                  <Label htmlFor="purchase-paid" className="text-xs">Paid:</Label>
+                  <Input id="purchase-paid" className="w-full" value={purchaseConfirmEdit.paid} onChange={e => setPurchaseConfirmEdit(s => s && ({ ...s, paid: e.target.value }))} />
                 </div>
                 {/* Validation and warnings */}
                 {(!purchaseConfirmEdit.supplier || /unknown|blank|supplier|person|അജ്ഞാത/i.test(purchaseConfirmEdit.supplier)) && (

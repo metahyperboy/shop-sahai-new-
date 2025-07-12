@@ -1,6 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import nlp from 'compromise';
-import Fuse from 'fuse.js';
 
 export interface VoiceCommandResult {
   success: boolean;
@@ -114,7 +112,6 @@ export function universalNumberParser(phrase: string): number | null {
 const supplierList = [
   'ABC Traders', 'XYZ Suppliers', 'Mohan Stores', 'Sahai Distributors', 'Global Mart', 'Super Bazaar', 'Fresh Mart', 'Elite Suppliers', 'Prime Wholesale', 'Classic Traders'
 ];
-const fuse = new Fuse(supplierList, { includeScore: true, threshold: 0.4 });
 
 // Add a list of common Malayalam supplier/borrower names for fuzzy matching
 const malayalamNameList = [
@@ -123,7 +120,6 @@ const malayalamNameList = [
   'അമൽ', 'അരുൺ', 'അനൂപ്', 'അനീഷ്', 'അനിൽകുമാർ', 'ബാലകൃഷ്ണൻ', 'ദിലീപ്', 'ഗിരീഷ്', 'ഹരീഷ്', 'ഇന്ദ്രജിത്',
   'ജയകുമാർ', 'ജയശങ്കർ', 'ജയചന്ദ്രൻ', 'ജയപ്രകാശ്', 'ജയരാജ്', 'ജയശ്രീ', 'ജയശ്രീ', 'ജയശ്രീ', 'ജയശ്രീ', 'ജയശ്രീ'
 ];
-const malayalamFuse = new Fuse(malayalamNameList, { includeScore: true, threshold: 0.4 });
 
 // Move cleanForNameExtraction above its first use
 function cleanForNameExtraction(text: string, language: string): string {
@@ -290,6 +286,8 @@ export class VoiceCommandService {
     }
     // Fuzzy match against supplier list
     if (supplierName === "Unknown Supplier" || !supplierName.trim()) {
+      const { default: Fuse } = await import('fuse.js');
+      const fuse = new Fuse(supplierList, { includeScore: true, threshold: 0.4 });
       const fuzzy = fuse.search(command);
       if (fuzzy.length > 0 && fuzzy[0].score !== undefined && fuzzy[0].score < 0.4) {
         supplierName = fuzzy[0].item;
@@ -317,6 +315,8 @@ export class VoiceCommandService {
     }
     // Fuzzy match fallback
     if (!supplierName || supplierName === "Unknown Supplier" || supplierName.trim() === "") {
+      const { default: Fuse } = await import('fuse.js');
+      const fuse = new Fuse(supplierList, { includeScore: true, threshold: 0.4 });
       const fuzzy = fuse.search(command);
       if (fuzzy.length > 0 && fuzzy[0].score !== undefined && fuzzy[0].score < 0.4) {
         supplierName = fuzzy[0].item;
@@ -336,6 +336,8 @@ export class VoiceCommandService {
       }
       // Fuzzy match against Malayalam name list
       if (!supplierName || supplierName === "അജ്ഞാത വിതരണക്കാരൻ" || supplierName.trim() === "") {
+        const { default: Fuse } = await import('fuse.js');
+        const malayalamFuse = new Fuse(malayalamNameList, { includeScore: true, threshold: 0.4 });
         const fuzzy = malayalamFuse.search(command);
         if (fuzzy.length > 0 && fuzzy[0].score !== undefined && fuzzy[0].score < 0.4) {
           supplierName = fuzzy[0].item;
@@ -431,6 +433,7 @@ export class VoiceCommandService {
     let borrowerName = isEnglish ? "Unknown Person" : "അജ്ഞാത വ്യക്തി";
     // Try compromise NLP for person extraction (English only)
     if (isEnglish) {
+      const { default: nlp } = await import('compromise');
       const doc = nlp(command);
       const people = doc.people().out('array');
       if (people.length > 0) borrowerName = people[0];
@@ -465,6 +468,8 @@ export class VoiceCommandService {
     }
     // Fuzzy match fallback for borrowerName (optional, if you want to match against a people list)
     if (!borrowerName || borrowerName === "Unknown Person" || borrowerName.trim() === "") {
+      const { default: Fuse } = await import('fuse.js');
+      const fuse = new Fuse(supplierList, { includeScore: true, threshold: 0.4 });
       const fuzzy = fuse.search(command);
       if (fuzzy.length > 0 && fuzzy[0].score !== undefined && fuzzy[0].score < 0.4) {
         borrowerName = fuzzy[0].item;
@@ -484,6 +489,8 @@ export class VoiceCommandService {
       }
       // Fuzzy match against Malayalam name list
       if (!borrowerName || borrowerName === "അജ്ഞാത വ്യക്തി" || borrowerName.trim() === "") {
+        const { default: Fuse } = await import('fuse.js');
+        const malayalamFuse = new Fuse(malayalamNameList, { includeScore: true, threshold: 0.4 });
         const fuzzy = malayalamFuse.search(command);
         if (fuzzy.length > 0 && fuzzy[0].score !== undefined && fuzzy[0].score < 0.4) {
           borrowerName = fuzzy[0].item;

@@ -2,13 +2,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Users, Mic, Settings, LogOut } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Suspense, lazy, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import ItemPurchase from "@/components/ItemPurchase";
-import BorrowManagement from "@/components/BorrowManagement";
-import IncomeExpense from "@/components/IncomeExpense";
-import UserSettings from "@/components/UserSettings";
-import VoiceAssistant from "@/components/VoiceAssistant";
+// Replace direct imports with lazy imports
+const ItemPurchase = lazy(() => import("@/components/ItemPurchase"));
+const BorrowManagement = lazy(() => import("@/components/BorrowManagement"));
+const IncomeExpense = lazy(() => import("@/components/IncomeExpense"));
+const UserSettings = lazy(() => import("@/components/UserSettings"));
+const VoiceAssistant = lazy(() => import("@/components/VoiceAssistant"));
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -19,6 +21,7 @@ const Index = () => {
   const [userName, setUserName] = useState("User");
   const [transactions, setTransactions] = useState([]);
   const [filter, setFilter] = useState<'daily' | 'weekly' | 'monthly' | 'all'>('all');
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
 
   // Load user profile data
   const loadProfile = async () => {
@@ -155,18 +158,63 @@ const Index = () => {
     localStorage.setItem('shop-sahai-language', lang);
   };
 
+  const formatDateDMY = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
+  };
+
+  const renderAllTransactionsModal = () => (
+    <Dialog open={showAllTransactions} onOpenChange={setShowAllTransactions}>
+      <DialogContent className="max-w-2xl w-full">
+        <DialogHeader>
+          <DialogTitle>{language === "malayalam" ? "എല്ലാ ഇടപാടുകളും" : "All Transactions"}</DialogTitle>
+        </DialogHeader>
+        <div className="overflow-x-auto max-h-[70vh]">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="p-2 text-left">{language === "malayalam" ? "തരം" : "Type"}</th>
+                <th className="p-2 text-left">{language === "malayalam" ? "വിഭാഗം" : "Category"}</th>
+                <th className="p-2 text-left">{language === "malayalam" ? "തുക" : "Amount"}</th>
+                <th className="p-2 text-left">{language === "malayalam" ? "തീയതി" : "Date"}</th>
+                <th className="p-2 text-left">{language === "malayalam" ? "വിവരണം" : "Description"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTransactions.map((t) => (
+                <tr key={t.id} className="border-b hover:bg-muted/50">
+                  <td className="p-2 font-medium">
+                    <span className={t.type === "income" ? "text-green-600" : "text-red-600"}>
+                      {t.type === "income" ? (language === "malayalam" ? "വരുമാനം" : "Income") : (language === "malayalam" ? "ചെലവ്" : "Expense")}
+                    </span>
+                  </td>
+                  <td className="p-2">{t.category}</td>
+                  <td className="p-2">₹{t.amount.toLocaleString()}</td>
+                  <td className="p-2">{formatDateDMY(t.created_at)}</td>
+                  <td className="p-2">{t.description || "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   const renderContent = () => {
     if (showSettings) {
       return (
-        <UserSettings 
-          onClose={() => setShowSettings(false)}
-          isDarkMode={isDarkMode}
-          setIsDarkMode={setIsDarkMode}
-          language={language}
-          setLanguage={handleLanguageChange}
-          userName={userName}
-          setUserName={setUserName}
-        />
+        <Suspense fallback={<div>Loading...</div>}>
+          <UserSettings 
+            onClose={() => setShowSettings(false)}
+            isDarkMode={isDarkMode}
+            setIsDarkMode={setIsDarkMode}
+            language={language}
+            setLanguage={handleLanguageChange}
+            userName={userName}
+            setUserName={setUserName}
+          />
+        </Suspense>
       );
     }
 
@@ -213,18 +261,26 @@ const Index = () => {
         return (
           <>
             <FilterButtons />
-            <ItemPurchase language={language} filter={filter} />
+            <Suspense fallback={<div>Loading...</div>}>
+              <ItemPurchase language={language} filter={filter} />
+            </Suspense>
           </>
         );
       case "borrow":
         return (
           <>
             <FilterButtons />
-            <BorrowManagement language={language} filter={filter} />
+            <Suspense fallback={<div>Loading...</div>}>
+              <BorrowManagement language={language} filter={filter} />
+            </Suspense>
           </>
         );
       case "income-expense":
-        return <IncomeExpense language={language} />;
+        return (
+          <Suspense fallback={<div>Loading...</div>}>
+            <IncomeExpense language={language} />
+          </Suspense>
+        );
       default:
         return (
           <>
@@ -306,13 +362,14 @@ const Index = () => {
               <Button 
                 variant="outline" 
                 className="w-full mt-3 text-sm" 
-                onClick={() => handleTabChange("income-expense")}
+                onClick={() => setShowAllTransactions(true)}
               >
                   {language === "malayalam" ? "എല്ലാ ഇടപാടുകളും കാണുക" : "View All Transactions"}
                 </Button>
               </CardContent>
             </Card>
             </div>
+            {renderAllTransactionsModal()}
           </>
         );
     }
@@ -395,10 +452,12 @@ const Index = () => {
 
       {/* Voice Assistant Modal */}
       {showVoiceAssistant && (
-        <VoiceAssistant
-          onClose={() => setShowVoiceAssistant(false)}
-          language={language}
-        />
+        <Suspense fallback={<div>Loading...</div>}>
+          <VoiceAssistant
+            onClose={() => setShowVoiceAssistant(false)}
+            language={language}
+          />
+        </Suspense>
       )}
     </div>
   );

@@ -252,7 +252,8 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
 
         setEditingId(null);
         setEditItem({ supplierName: "", totalAmount: "", amountPaid: "" });
-        fetchPurchases();
+        setPage(1); // Reset page to 1 after edit
+        fetchPurchases(true); // Fetch with reset to avoid duplicates
       } catch (error) {
         toast({
           title: "Error",
