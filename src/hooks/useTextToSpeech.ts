@@ -1,30 +1,45 @@
-import { useCallback } from "react";
+import { useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { TextToSpeech as CapTextToSpeech } from '@capacitor-community/text-to-speech';
 
 interface UseTextToSpeechProps {
   language: string;
   voiceURI?: string;
 }
 
-export const useTextToSpeech = ({ language, voiceURI }: UseTextToSpeechProps) => {
-  const speak = useCallback((text: string, onEnd?: () => void) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = language === "malayalam" ? "ml-IN" : "en-US";
-      // Select Malayalam voice if available and requested
-      if (language === "malayalam") {
-        const voices = window.speechSynthesis.getVoices();
-        let mlVoice = undefined;
-        if (voiceURI) {
-          mlVoice = voices.find(v => v.voiceURI === voiceURI);
-        } else {
-          mlVoice = voices.find(v => v.lang === "ml-IN");
-        }
-        if (mlVoice) utterance.voice = mlVoice;
-      }
-      if (onEnd) utterance.onend = onEnd;
-      speechSynthesis.speak(utterance);
-    }
-  }, [language, voiceURI]);
+interface UseTextToSpeechReturn {
+  speak: (text: string, onEnd?: () => void) => Promise<void>;
+}
 
+export function useTextToSpeech({ language, voiceURI }: UseTextToSpeechProps): UseTextToSpeechReturn {
+  const speak = useCallback(
+    async (text: string, onEnd?: () => void) => {
+      // Native (Capacitor)
+      if (Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
+        await CapTextToSpeech.speak({
+          text,
+          lang: language === 'malayalam' ? 'ml-IN' : 'en-US',
+          rate: 1.0,
+          pitch: 1.0,
+          volume: 1.0,
+        });
+        if (onEnd) onEnd();
+        return;
+      }
+      // Web
+      if ('speechSynthesis' in window) {
+        const utter = new window.SpeechSynthesisUtterance(text);
+        utter.lang = language === 'malayalam' ? 'ml-IN' : 'en-US';
+        if (voiceURI) {
+          const voices = window.speechSynthesis.getVoices();
+          const found = voices.find(v => v.voiceURI === voiceURI);
+          if (found) utter.voice = found;
+        }
+        if (onEnd) utter.onend = onEnd;
+        window.speechSynthesis.speak(utter);
+      }
+    },
+    [language, voiceURI]
+  );
   return { speak };
 };

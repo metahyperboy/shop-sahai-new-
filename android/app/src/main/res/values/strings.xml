@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">shopsahai</string>
+    <string name="title_activity_main">shopsahai</string>
+    <string name="package_name">com.shopsahai.app</string>
+    <string name="custom_url_scheme">com.shopsahai.app</string>
+</resources>

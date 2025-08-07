@@ -11,6 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
+    "@capacitor-community/text-to-speech": "^6.0.0",
     "@capacitor/android": "^7.4.1",
     "@capacitor/cli": "^7.4.1",
     "@capacitor/core": "^7.4.1",
@@ -51,6 +53,7 @@
     "compromise": "^14.14.4",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
+    "fuse.js": "^6.6.2",
     "input-otp": "^1.2.4",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
@@ -65,9 +68,8 @@
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.3",
-    "zod": "^3.23.8",
     "words-to-numbers": "^1.5.1",
-    "fuse.js": "^6.6.2"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",

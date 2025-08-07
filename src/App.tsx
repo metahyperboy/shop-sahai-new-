@@ -53,7 +53,8 @@ const App = () => {
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center py-8">
+            <img src="/logo.png" alt="App Logo" style={{ width: 120, height: 120, borderRadius: 24, marginBottom: 24 }} />
             <Auth />
             <Toaster />
             <Sonner />
@@ -68,6 +69,9 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <div className="flex flex-col items-center justify-center py-8">
+          <img src="/logo.png" alt="App Logo" style={{ width: 120, height: 120, borderRadius: 24, marginBottom: 24 }} />
+        </div>
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
