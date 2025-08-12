@@ -337,6 +337,11 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
     onError: handleSpeechError
   });
   const [micError, setMicError] = useState("");
+  useEffect(() => {
+    // Log native plugin presence for debugging
+    const hasPlugin = Boolean((window as any).Capacitor?.Plugins?.VoiceAssistant);
+    console.log('[VoiceAssistant] Native plugin available:', hasPlugin);
+  }, []);
 
   // Detect unsupported browsers (iOS/Safari)
   useEffect(() => {

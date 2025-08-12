@@ -3,6 +3,7 @@ package com.shopsahai.app;
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.util.Log;
 import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
@@ -31,13 +32,16 @@ import java.util.Locale;
         }
 )
 public class VoiceAssistantPlugin extends Plugin {
+    private static final String TAG = "VoiceAssistant";
     private SpeechRecognizer speechRecognizer;
     private Intent recognizerIntent;
     private TextToSpeech textToSpeech;
 
     @PluginMethod
     public void requestPermissions(PluginCall call) {
+        Log.d(TAG, "requestPermissions called");
         if (getPermissionState("microphone") != PermissionState.GRANTED) {
+            Log.d(TAG, "requesting microphone permission");
             requestPermissionForAlias("microphone", call, "permissionCallback");
             return;
         }
@@ -58,13 +62,16 @@ public class VoiceAssistantPlugin extends Plugin {
     public void startListening(PluginCall call) {
         String lang = call.getString("language", "en-US");
         boolean partialResults = call.getBoolean("partialResults", true);
+        Log.d(TAG, "startListening lang=" + lang + " partialResults=" + partialResults);
 
         if (getPermissionState("microphone") != PermissionState.GRANTED) {
+            Log.w(TAG, "startListening rejected: microphone permission not granted");
             call.reject("Microphone permission not granted");
             return;
         }
 
         if (!SpeechRecognizer.isRecognitionAvailable(getContext())) {
+            Log.e(TAG, "Speech recognition not available on this device");
             call.reject("Speech recognition not available on this device");
             return;
         }
@@ -85,11 +92,12 @@ public class VoiceAssistantPlugin extends Plugin {
 
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override public void onReadyForSpeech(@Nullable Bundle params) { }
-            @Override public void onBeginningOfSpeech() { }
+            @Override public void onBeginningOfSpeech() { Log.d(TAG, "onBeginningOfSpeech"); }
             @Override public void onRmsChanged(float rmsdB) { }
             @Override public void onBufferReceived(byte[] buffer) { }
-            @Override public void onEndOfSpeech() { }
+            @Override public void onEndOfSpeech() { Log.d(TAG, "onEndOfSpeech"); }
             @Override public void onError(int error) {
+                Log.e(TAG, "onError code=" + error);
                 // Notify error via event and resolve to unblock caller
                 JSObject data = new JSObject();
                 data.put("error", error);
@@ -104,10 +112,12 @@ public class VoiceAssistantPlugin extends Plugin {
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 JSObject ret = new JSObject();
                 if (matches != null) {
+                    Log.d(TAG, "onResults firstMatch=" + matches.get(0));
                     JSArray arr = new JSArray(matches);
                     ret.put("matches", arr);
                     notifyPartial(arr, true);
                 } else {
+                    Log.d(TAG, "onResults empty");
                     ret.put("matches", new JSArray());
                 }
                 if (!saved.isReleased()) saved.resolve(ret);
@@ -115,6 +125,7 @@ public class VoiceAssistantPlugin extends Plugin {
             @Override public void onPartialResults(Bundle partial) {
                 ArrayList<String> matches = partial.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (matches != null) {
+                    Log.d(TAG, "onPartialResults firstMatch=" + matches.get(0));
                     notifyPartial(new JSArray(matches), false);
                 }
             }
@@ -133,6 +144,7 @@ public class VoiceAssistantPlugin extends Plugin {
 
     @PluginMethod
     public void stopListening(PluginCall call) {
+        Log.d(TAG, "stopListening called");
         if (speechRecognizer != null) {
             speechRecognizer.stopListening();
             speechRecognizer.cancel();
@@ -146,6 +158,7 @@ public class VoiceAssistantPlugin extends Plugin {
     public void speak(PluginCall call) {
         String text = call.getString("text", "");
         String lang = call.getString("lang", "en-US");
+        Log.d(TAG, "speak text=" + (text != null ? Math.min(text.length(), 30) : 0) + " chars lang=" + lang);
         if (textToSpeech == null) {
             textToSpeech = new TextToSpeech(getContext(), status -> {
                 if (status == TextToSpeech.SUCCESS) {
@@ -153,6 +166,7 @@ public class VoiceAssistantPlugin extends Plugin {
                     textToSpeech.setLanguage(locale);
                     speakInternal(text, call);
                 } else {
+                    Log.e(TAG, "TTS init failed status=" + status);
                     call.reject("TTS init failed: " + status);
                 }
             });
