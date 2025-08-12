@@ -90,8 +90,14 @@ public class VoiceAssistantPlugin extends Plugin {
             @Override public void onBufferReceived(byte[] buffer) { }
             @Override public void onEndOfSpeech() { }
             @Override public void onError(int error) {
+                // Notify error via event and resolve to unblock caller
+                JSObject data = new JSObject();
+                data.put("error", error);
+                notifyListeners("onError", data);
                 if (!saved.isReleased()) {
-                    saved.reject("Speech error: " + error);
+                    JSObject ret = new JSObject();
+                    ret.put("matches", new JSArray());
+                    saved.resolve(ret);
                 }
             }
             @Override public void onResults(Bundle results) {

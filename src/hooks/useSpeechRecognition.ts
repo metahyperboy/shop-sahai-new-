@@ -8,6 +8,7 @@ interface UseSpeechRecognitionProps {
 }
 
 interface UseSpeechRecognitionReturn {
+  isSupported: boolean;
   startListening: () => void;
   stopListening: () => void;
   isListening: boolean;
@@ -21,12 +22,15 @@ export function useSpeechRecognition({
 }: UseSpeechRecognitionProps): UseSpeechRecognitionReturn {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
+  const [isSupported, setIsSupported] = useState<boolean>(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
     if (Capacitor.getPlatform && Capacitor.getPlatform() === "android") {
       // Request using native plugin
       (window as any).Capacitor?.Plugins?.VoiceAssistant?.requestPermissions?.();
+      // Assume supported on Android; startListening will surface any plugin/runtime errors
+      setIsSupported(true);
     }
     return () => {
       if (recognitionRef.current) recognitionRef.current.stop();
@@ -77,8 +81,10 @@ export function useSpeechRecognition({
     if (!SpeechRecognitionAPI) {
       setIsListening(false);
       if (onError) onError("Speech recognition is not supported in this browser.");
+      setIsSupported(false);
       return;
     }
+    setIsSupported(true);
     recognitionRef.current = new SpeechRecognitionAPI();
     recognitionRef.current.continuous = false;
     recognitionRef.current.interimResults = true;
@@ -110,5 +116,13 @@ export function useSpeechRecognition({
     if (recognitionRef.current) recognitionRef.current.stop();
   }, []);
 
-  return { startListening, stopListening, isListening, transcript };
+  useEffect(() => {
+    if (Capacitor.getPlatform && Capacitor.getPlatform() !== "android") {
+      const SpeechRecognitionAPI =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      setIsSupported(!!SpeechRecognitionAPI);
+    }
+  }, []);
+
+  return { isSupported, startListening, stopListening, isListening, transcript };
 }
