@@ -27,9 +27,7 @@ export function useSpeechRecognition({
 
   useEffect(() => {
     if (Capacitor.getPlatform && Capacitor.getPlatform() === "android") {
-      // Request using native plugin
       (window as any).Capacitor?.Plugins?.VoiceAssistant?.requestPermissions?.();
-      // Assume supported on Android; startListening will surface any plugin/runtime errors
       setIsSupported(true);
     }
     return () => {
