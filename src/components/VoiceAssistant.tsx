@@ -341,6 +341,14 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
     // Log native plugin presence for debugging
     const hasPlugin = Boolean((window as any).Capacitor?.Plugins?.VoiceAssistant);
     console.log('[VoiceAssistant] Native plugin available:', hasPlugin);
+    if (hasPlugin) {
+      (window as any).Capacitor?.Plugins?.VoiceAssistant?.available?.().then((r: any) => {
+        console.log('[VoiceAssistant] Speech available:', r);
+      });
+      (window as any).Capacitor?.Plugins?.VoiceAssistant?.checkPermissions?.().then((r: any) => {
+        console.log('[VoiceAssistant] Mic permission granted:', r);
+      });
+    }
   }, []);
 
   // Detect unsupported browsers (iOS/Safari)

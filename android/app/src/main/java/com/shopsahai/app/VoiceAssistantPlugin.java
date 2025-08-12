@@ -135,6 +135,21 @@ public class VoiceAssistantPlugin extends Plugin {
         speechRecognizer.startListening(recognizerIntent);
     }
 
+    @PluginMethod
+    public void available(PluginCall call) {
+        boolean avail = SpeechRecognizer.isRecognitionAvailable(getContext());
+        JSObject ret = new JSObject();
+        ret.put("available", avail);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void checkPermissions(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("granted", getPermissionState("microphone") == PermissionState.GRANTED);
+        call.resolve(ret);
+    }
+
     private void notifyPartial(JSArray matches, boolean isFinal) {
         JSObject data = new JSObject();
         data.put("matches", matches);
