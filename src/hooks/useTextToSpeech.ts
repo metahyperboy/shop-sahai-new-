@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { TextToSpeech as CapTextToSpeech } from '@capacitor-community/text-to-speech';
 
 interface UseTextToSpeechProps {
   language: string;
@@ -14,17 +13,14 @@ interface UseTextToSpeechReturn {
 export function useTextToSpeech({ language, voiceURI }: UseTextToSpeechProps): UseTextToSpeechReturn {
   const speak = useCallback(
     async (text: string, onEnd?: () => void) => {
-      // Native (Capacitor)
-      if (Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
-        await CapTextToSpeech.speak({
-          text,
-          lang: language === 'malayalam' ? 'ml-IN' : 'en-US',
-          rate: 1.0,
-          pitch: 1.0,
-          volume: 1.0,
-        });
-        if (onEnd) onEnd();
-        return;
+      // Native (Capacitor Java plugin)
+      if (Capacitor.getPlatform && Capacitor.getPlatform() === 'android') {
+        const plugin = (window as any).Capacitor?.Plugins?.VoiceAssistant;
+        if (plugin?.speak) {
+          await plugin.speak({ text, lang: language === 'malayalam' ? 'ml-IN' : 'en-US' });
+          if (onEnd) onEnd();
+          return;
+        }
       }
       // Web
       if ('speechSynthesis' in window) {

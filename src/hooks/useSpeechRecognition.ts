@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Capacitor } from "@capacitor/core";
-import { SpeechRecognition as CapSpeechRecognition } from "@capacitor-community/speech-recognition";
 
 interface UseSpeechRecognitionProps {
   language: string;
@@ -26,7 +25,8 @@ export function useSpeechRecognition({
 
   useEffect(() => {
     if (Capacitor.getPlatform && Capacitor.getPlatform() === "android") {
-      CapSpeechRecognition.requestPermissions?.();
+      // Request using native plugin
+      (window as any).Capacitor?.Plugins?.VoiceAssistant?.requestPermissions?.();
     }
     return () => {
       if (recognitionRef.current) recognitionRef.current.stop();
@@ -40,24 +40,34 @@ export function useSpeechRecognition({
 
     // Native (Capacitor)
     if (Capacitor.getPlatform && Capacitor.getPlatform() === "android") {
-      CapSpeechRecognition.start({
-        language: language === "malayalam" ? "ml-IN" : "en-US",
-        maxResults: 1,
-        prompt: "Speak now",
-        partialResults: true,
-        popup: true,
-      })
-        .then((result) => {
-          if (result.matches && result.matches.length > 0) {
-            setTranscript(result.matches[0]);
-            onResult(result.matches[0]);
+      const plugin = (window as any).Capacitor?.Plugins?.VoiceAssistant;
+      if (!plugin) {
+        setIsListening(false);
+        if (onError) onError("Native VoiceAssistant plugin not available");
+        return;
+      }
+      // Listen for partial results once
+      const listener = plugin.addListener?.("onResult", (data: any) => {
+        const match = data?.matches?.[0];
+        if (match) setTranscript(match);
+      });
+      plugin
+        .startListening({ language: language === "malayalam" ? "ml-IN" : "en-US", partialResults: true })
+        .then((result: any) => {
+          const match = result?.matches?.[0];
+          if (match) {
+            setTranscript(match);
+            onResult(match);
           }
         })
-        .catch((err) => {
+        .catch((err: any) => {
           setIsListening(false);
-          if (onError) onError(err.message || String(err));
+          if (onError) onError(err?.message || String(err));
         })
-        .finally(() => setIsListening(false));
+        .finally(() => {
+          listener?.remove?.();
+          setIsListening(false);
+        });
       return;
     }
 
@@ -93,7 +103,7 @@ export function useSpeechRecognition({
     setIsListening(false);
     // Native (Capacitor)
     if (Capacitor.getPlatform && Capacitor.getPlatform() === "android") {
-      CapSpeechRecognition.stop?.();
+      (window as any).Capacitor?.Plugins?.VoiceAssistant?.stopListening?.();
       return;
     }
     // Web
