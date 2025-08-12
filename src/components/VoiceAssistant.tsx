@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { X, Mic, MicOff, Volume2 } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useNativeVoice } from "@/hooks/useNativeVoice";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { VoiceCommandService } from "@/services/voiceCommandService";
 import React, { useEffect } from "react";
@@ -114,7 +115,15 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
     if (!isListening && !isSpeaking && borrowState.step !== 'done' && purchaseState.step !== 'done') {
       if (cooldownRef.current) clearTimeout(cooldownRef.current);
       cooldownRef.current = setTimeout(() => {
-        if (!isSpeaking) startListening();
+        if (!isSpeaking) {
+          const hasNative = Boolean((window as any).Capacitor?.Plugins?.VoiceAssistant);
+          if (hasNative) {
+            // fire and forget
+            try { (async () => startNativeListening())(); } catch {}
+          } else {
+            startListening();
+          }
+        }
       }, 500); // 500ms cooldown
     }
   };
@@ -336,6 +345,7 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
     onResult: debouncedHandleTranscript,
     onError: handleSpeechError
   });
+  const { startNativeListening, stopNativeListening, ensurePermission } = useNativeVoice();
   const [micError, setMicError] = useState("");
   useEffect(() => {
     // Log native plugin presence for debugging
@@ -407,7 +417,7 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
   }, [isEnglish, borrowState.step, toast]);
 
   // Place handleVoiceClick above its usage
-  const handleVoiceClick = () => {
+  const handleVoiceClick = async () => {
     if (micCooldown) return;
     setMicError("");
     setResponse("");
@@ -420,10 +430,25 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
       return;
     }
     if (isListening) {
-      stopListening();
+      const hasNative = Boolean((window as any).Capacitor?.Plugins?.VoiceAssistant);
+      if (hasNative) {
+        await stopNativeListening();
+      } else {
+        stopListening();
+      }
     } else {
       setResponse("");
-      startListening();
+      const hasNative = Boolean((window as any).Capacitor?.Plugins?.VoiceAssistant);
+      if (hasNative) {
+        try {
+          await ensurePermission();
+          await startNativeListening();
+        } catch (e: any) {
+          setMicError(e?.message || String(e));
+        }
+      } else {
+        startListening();
+      }
     }
   };
 
